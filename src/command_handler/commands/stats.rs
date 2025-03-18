@@ -6,6 +6,7 @@ use serenity::all::{
     CreateEmbed,
 };
 use sqlx::SqlitePool;
+use crate::command_handler::{format_points, format_number};
 
 pub async fn handle_stats(
     command: &CommandInteraction,
@@ -24,6 +25,15 @@ pub async fn handle_stats(
 
     match user_data {
         Some(data) => {
+            // Get collection log count
+            let clog_count = sqlx::query!(
+                "SELECT COUNT(*) as count FROM collection_log_entries WHERE discord_id = ?",
+                discord_id
+            )
+            .fetch_one(db)
+            .await?
+            .count;
+
             // Get current rank
             let current_rank = sqlx::query!(
                 "SELECT role_name, points 
@@ -55,10 +65,10 @@ pub async fn handle_stats(
                 let needed = next.points - current;
                 let percentage = (progress as f64 / needed as f64 * 100.0).round();
                 format!(
-                    "{:.1}% ({} / {} points)",
+                    "{:.1}% ({} / {})",
                     percentage,
-                    progress,
-                    needed
+                    format_number(progress),
+                    format_points(needed)
                 )
             } else {
                 "Maximum rank achieved!".to_string()
@@ -77,8 +87,9 @@ pub async fn handle_stats(
                 .color(0x00ff00)
                 .thumbnail(command.user.face())
                 .field("Rank", rank_name, true)
-                .field("Total Points", data.points.to_string(), true)
-                .field("Total Drops", data.total_drops.to_string(), true)
+                .field("Total Points", format_points(data.points), true)
+                .field("Total Drops", format_number(data.total_drops), true)
+                .field("Collection Log", format_number(clog_count.into()), true)
                 .field(format!("Progress to {}", next_rank_name), progress, false);
 
             command
