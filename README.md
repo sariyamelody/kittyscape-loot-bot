@@ -1,0 +1,1 @@
+# kittyscape-loot-bot
