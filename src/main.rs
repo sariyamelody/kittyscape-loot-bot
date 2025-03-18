@@ -1,4 +1,4 @@
-mod commands;
+mod command_handler;
 mod prices;
 mod collection_log;
 
@@ -16,7 +16,7 @@ use std::env;
 use std::sync::Arc;
 use dotenvy::dotenv;
 use tracing::{error, info};
-use commands::{PriceManagerKey, CollectionLogManagerKey};
+use command_handler::{PriceManagerKey, CollectionLogManagerKey};
 
 struct Handler {
     db: SqlitePool,
@@ -27,7 +27,7 @@ struct Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Err(why) = commands::handle_interaction(&ctx, &interaction, &self.db).await {
+        if let Err(why) = command_handler::handle_interaction(&ctx, &interaction, &self.db).await {
             error!("Error handling interaction: {:?}", why);
         }
     }
@@ -43,7 +43,7 @@ impl EventHandler for Handler {
         }
 
         // Register commands
-        if let Err(why) = commands::register_commands(&ctx).await {
+        if let Err(why) = command_handler::register_commands(&ctx).await {
             error!("Error registering commands: {:?}", why);
         }
 
