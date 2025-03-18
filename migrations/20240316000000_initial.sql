@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS users (
+    discord_id TEXT PRIMARY KEY,
+    points INTEGER NOT NULL DEFAULT 0,
+    total_drops INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS drops (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_id TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    value INTEGER NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(discord_id) REFERENCES users(discord_id)
+);
+
+CREATE TABLE IF NOT EXISTS rank_thresholds (
+    points INTEGER PRIMARY KEY,
+    role_name TEXT NOT NULL
+); 
