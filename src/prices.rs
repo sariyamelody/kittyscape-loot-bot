@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, debug};
+use crate::commands::CollectionLogManagerKey;
 
 const USER_AGENT: &str = "KittyScape Loot Bot/1.0";
 
@@ -54,6 +55,13 @@ impl PriceManager {
             .build()?;
 
         let mappings = Self::fetch_mappings(&client).await?;
+        info!("PriceManager initialized with {} items", mappings.len());
+        
+        // Debug log some example items
+        for (name, mapping) in mappings.iter().take(5) {
+            debug!("Example price item: {} (ID: {})", name, mapping.id);
+        }
+
         let mut id_to_name = HashMap::new();
         
         // Create reverse mapping from ID to name
@@ -153,5 +161,25 @@ impl PriceManager {
             .or(price.high)
             .or(mapping.high_alch)
             .unwrap_or(0))
+    }
+
+    pub async fn get_item_id(&self, name: &str) -> Option<i64> {
+        let data = self.data.read().await;
+        data.mappings.get(name).map(|item| item.id)
+    }
+
+    pub async fn get_collection_log_suggestions(&self, partial: &str) -> Vec<String> {
+        let data = self.data.read().await;
+        let partial = partial.to_lowercase();
+
+        data.mappings
+            .iter()
+            .filter(|entry| {
+                let (name, _) = entry;
+                name.to_lowercase().contains(&partial)
+            })
+            .map(|(name, _)| name.clone())
+            .take(25)
+            .collect()
     }
 } 
