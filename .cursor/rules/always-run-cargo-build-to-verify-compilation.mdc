@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Always test your changes with cargo build
+Whenever making major changes, at the end, always try to run `cargo build` and ensure that the project still builds.
