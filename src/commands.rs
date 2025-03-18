@@ -180,6 +180,32 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                         .and_then(|opt| opt.value.as_str())
                         .ok_or_else(|| anyhow::anyhow!("Item name not provided"))?;
 
+                    let discord_id = command.user.id.to_string();
+
+                    // Check if user already has this collection log entry
+                    if let Ok(Some(existing_entry)) = sqlx::query!(
+                        "SELECT timestamp FROM collection_log_entries 
+                         WHERE discord_id = ? AND item_name = ?",
+                        discord_id,
+                        item_name
+                    )
+                    .fetch_optional(db)
+                    .await
+                    {
+                        let timestamp = existing_entry.timestamp.expect("Timestamp should not be null");
+                        command
+                            .create_response(&ctx.http, CreateInteractionResponse::Message(
+                                CreateInteractionResponseMessage::new()
+                                    .content(format!(
+                                        "You've already logged {} in your collection log on {}!",
+                                        item_name,
+                                        timestamp.format("%B %d, %Y at %H:%M UTC")
+                                    ))
+                            ))
+                            .await?;
+                        return Ok(());
+                    }
+
                     // Get collection log manager from context data
                     let data = ctx.data.read().await;
                     let collection_log_manager = data.get::<CollectionLogManagerKey>()
@@ -187,8 +213,6 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
 
                     // Calculate collection log points
                     if let Some(points) = collection_log_manager.calculate_points(item_name).await {
-                        let discord_id = command.user.id.to_string();
-
                         // Insert or update user
                         sqlx::query!(
                             "INSERT INTO users (discord_id, points, total_drops) 

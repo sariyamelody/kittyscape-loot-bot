@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, debug};
-use crate::commands::CollectionLogManagerKey;
 
 const USER_AGENT: &str = "KittyScape Loot Bot/1.0";
 
