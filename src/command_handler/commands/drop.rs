@@ -6,7 +6,6 @@ use serenity::all::{
 };
 use sqlx::SqlitePool;
 use crate::command_handler::{PriceManagerKey, format_gp, format_points, format_number};
-use std::sync::Arc;
 
 pub async fn handle_drop(
     command: &CommandInteraction,

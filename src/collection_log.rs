@@ -16,7 +16,6 @@ pub struct CollectionLogData {
 
 pub struct CollectionLogManager {
     data: Arc<RwLock<CollectionLogData>>,
-    client: reqwest::Client,
 }
 
 impl CollectionLogManager {
@@ -39,7 +38,6 @@ impl CollectionLogManager {
 
         Ok(Self {
             data: Arc::new(RwLock::new(data)),
-            client,
         })
     }
 

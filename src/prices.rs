@@ -38,7 +38,6 @@ pub struct ItemPrice {
 #[derive(Debug, Clone)]
 pub struct PriceData {
     pub mappings: HashMap<String, ItemMapping>,
-    pub id_to_name: HashMap<i64, String>,
     pub latest_prices: HashMap<i64, ItemPrice>,
 }
 
@@ -61,16 +60,8 @@ impl PriceManager {
             debug!("Example price item: {} (ID: {})", name, mapping.id);
         }
 
-        let mut id_to_name = HashMap::new();
-        
-        // Create reverse mapping from ID to name
-        for mapping in mappings.values() {
-            id_to_name.insert(mapping.id, mapping.name.clone());
-        }
-
         let data = PriceData {
             mappings,
-            id_to_name,
             latest_prices: HashMap::new(),
         };
 
@@ -160,25 +151,5 @@ impl PriceManager {
             .or(price.high)
             .or(mapping.high_alch)
             .unwrap_or(0))
-    }
-
-    pub async fn get_item_id(&self, name: &str) -> Option<i64> {
-        let data = self.data.read().await;
-        data.mappings.get(name).map(|item| item.id)
-    }
-
-    pub async fn get_collection_log_suggestions(&self, partial: &str) -> Vec<String> {
-        let data = self.data.read().await;
-        let partial = partial.to_lowercase();
-
-        data.mappings
-            .iter()
-            .filter(|entry| {
-                let (name, _) = entry;
-                name.to_lowercase().contains(&partial)
-            })
-            .map(|(name, _)| name.clone())
-            .take(25)
-            .collect()
     }
 } 
