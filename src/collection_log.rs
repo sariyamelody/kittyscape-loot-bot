@@ -2,9 +2,12 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, debug};
+use tracing::{info, debug, error};
+use serde_json::Value;
+use html_escape::decode_html_entities;
 
 const USER_AGENT: &str = "KittyScape Loot Bot/1.0";
+const WIKI_API_URL: &str = "https://oldschool.runescape.wiki/api.php";
 
 #[derive(Debug, Clone)]
 pub struct CollectionLogData {
@@ -22,7 +25,7 @@ impl CollectionLogManager {
             .user_agent(USER_AGENT)
             .build()?;
 
-        let completion_rates = Self::initialize_completion_rates();
+        let completion_rates = Self::fetch_completion_rates(&client).await?;
         info!("CollectionLogManager initialized with {} items", completion_rates.len());
         
         // Debug log some example items
@@ -40,60 +43,120 @@ impl CollectionLogManager {
         })
     }
 
-    fn initialize_completion_rates() -> HashMap<String, f64> {
+    async fn fetch_completion_rates(client: &reqwest::Client) -> Result<HashMap<String, f64>> {
         let mut rates = HashMap::new();
         
-        // Boss drops (very rare)
-        rates.insert("Twisted Bow".to_string(), 0.1);
-        rates.insert("Scythe of vitur".to_string(), 0.15);
-        rates.insert("Elysian sigil".to_string(), 0.05);
-        rates.insert("Dragon Warhammer".to_string(), 0.5);
-        rates.insert("Tumeken's shadow".to_string(), 0.1);
-        
-        // Rare boss drops
-        rates.insert("Bandos chestplate".to_string(), 1.0);
-        rates.insert("Armadyl crossbow".to_string(), 1.2);
-        rates.insert("Zamorakian spear".to_string(), 1.5);
-        rates.insert("Ancestral robe top".to_string(), 1.0);
-        rates.insert("Kodai insignia".to_string(), 0.8);
-        
-        // Medium rarity items
-        rates.insert("Dragon boots".to_string(), 5.0);
-        rates.insert("Abyssal whip".to_string(), 8.0);
-        rates.insert("Berserker ring".to_string(), 4.0);
-        rates.insert("Dragon chainbody".to_string(), 6.0);
-        rates.insert("Staff of the dead".to_string(), 3.0);
-        
-        // Common items
-        rates.insert("Rune platebody".to_string(), 25.0);
-        rates.insert("Dragon med helm".to_string(), 15.0);
-        rates.insert("Dragon dagger".to_string(), 20.0);
-        rates.insert("Mystic robe top".to_string(), 30.0);
-        rates.insert("Dragon longsword".to_string(), 18.0);
+        let params = [
+            ("action", "parse"),
+            ("page", "Collection_log/Table"),
+            ("format", "json"),
+            ("prop", "text"),
+        ];
 
-        // Raid items
-        rates.insert("Dexterous prayer scroll".to_string(), 2.0);
-        rates.insert("Arcane prayer scroll".to_string(), 2.0);
-        rates.insert("Dragon claws".to_string(), 0.8);
-        rates.insert("Ancestral hat".to_string(), 1.0);
-        rates.insert("Dinh's bulwark".to_string(), 1.2);
+        info!("Fetching collection log data from wiki API...");
+        let response = client
+            .get(WIKI_API_URL)
+            .query(&params)
+            .send()
+            .await?;
+        
+        info!("Got response with status: {}", response.status());
+        let response_text = response.text().await?;
+        debug!("Response text length: {} bytes", response_text.len());
+        
+        let json: Value = serde_json::from_str(&response_text)?;
+        
+        if let Some(html) = json.get("parse")
+            .and_then(|p| p.get("text"))
+            .and_then(|t| t.get("*"))
+            .and_then(|s| s.as_str()) 
+        {
+            debug!("Successfully got HTML content from response");
+            debug!("HTML content length: {} bytes", html.len());
+            
+            let document = scraper::Html::parse_document(html);
+            let selector = scraper::Selector::parse("tr").unwrap();
+            let rows: Vec<_> = document.select(&selector).collect();
+            debug!("Found {} table rows", rows.len());
 
-        // Wilderness items
-        rates.insert("Dragon pickaxe".to_string(), 3.0);
-        rates.insert("Ring of the gods".to_string(), 0.5);
-        rates.insert("Tyrannical ring".to_string(), 1.0);
-        rates.insert("Treasonous ring".to_string(), 1.0);
-        rates.insert("Odium ward".to_string(), 1.5);
+            for (i, row) in rows.iter().enumerate() {
+                debug!("Processing row {}", i);
+                
+                // Log the raw HTML of the row for debugging
+                debug!("Row HTML: {}", row.html());
+                
+                let cells: Vec<_> = row.select(&scraper::Selector::parse("td").unwrap()).collect();
+                debug!("Found {} cells in row", cells.len());
+                
+                if let Some(first_cell) = cells.first() {
+                    debug!("First cell HTML: {}", first_cell.html());
+                    
+                    let links: Vec<_> = first_cell.select(&scraper::Selector::parse("a").unwrap()).collect();
+                    debug!("Found {} links in first cell", links.len());
+                    
+                    if let Some(first_link) = links.first() {
+                        debug!("First link HTML: {}", first_link.html());
+                        debug!("First link attributes: {:?}", first_link.value().attrs);
+                    }
+                }
+                
+                if let Some(name) = row
+                    .select(&scraper::Selector::parse("td").unwrap())
+                    .next()
+                    .and_then(|td| {
+                        // Get all links in the cell
+                        let links: Vec<_> = td.select(&scraper::Selector::parse("a").unwrap()).collect();
+                        // Skip the image link (first link) and get the item name link (second link)
+                        links.get(1)
+                            .and_then(|a| a.value().attr("title"))
+                            .map(|s| decode_html_entities(s).into_owned())
+                    })
+                {
+                    debug!("Found item name: {}", name);
+                    
+                    if let Some(rate) = row
+                        .select(&scraper::Selector::parse("td").unwrap())
+                        .last()
+                        .and_then(|td| td.text().next())
+                        .map(|s| s.trim())
+                        .and_then(|s| {
+                            debug!("Found rate text: {}", s);
+                            if s.starts_with("<") {
+                                // Handle rates shown as "<0.1%"
+                                Some(0.1)
+                            } else {
+                                // Normal rate like "12.4%"
+                                s.trim_end_matches('%')
+                                    .parse::<f64>()
+                                    .ok()
+                            }
+                        })
+                    {
+                        if !name.is_empty() {
+                            debug!("Found item: {} with rate: {}%", name, rate);
+                            rates.insert(name, rate);
+                        }
+                    } else {
+                        info!("Failed to parse rate for item: {}", name);
+                    }
+                } else {
+                    info!("Failed to find item name in row");
+                }
+            }
+        } else {
+            error!("Failed to get HTML content from response");
+            info!("Response JSON structure: {}", serde_json::to_string_pretty(&json)?);
+        }
 
-        // Slayer items
-        rates.insert("Abyssal dagger".to_string(), 2.0);
-        rates.insert("Kraken tentacle".to_string(), 4.0);
-        rates.insert("Occult necklace".to_string(), 5.0);
-        rates.insert("Imbued heart".to_string(), 0.3);
-        rates.insert("Primordial crystal".to_string(), 1.0);
+        // Fallback to some default items if we failed to parse any
+        if rates.is_empty() {
+            error!("Failed to parse any items from wiki, using fallback items");
+            rates.insert("Twisted bow".to_string(), 0.2);
+            rates.insert("Dragon Warhammer".to_string(), 0.5);
+        }
 
         info!("Initialized collection log with {} items", rates.len());
-        rates
+        Ok(rates)
     }
 
     pub async fn calculate_points(&self, item_name: &str) -> Option<i64> {

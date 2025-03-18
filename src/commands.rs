@@ -64,14 +64,15 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                         .and_then(|opt| opt.value.as_str())
                         .ok_or_else(|| anyhow::anyhow!("Item name not provided"))?;
 
-                    // Get collection log manager from context data
+                    // Get price manager from context data
                     let data = ctx.data.read().await;
-                    let collection_log_manager = data.get::<CollectionLogManagerKey>()
-                        .ok_or_else(|| anyhow::anyhow!("Collection log manager not found"))?;
+                    let price_manager = data.get::<PriceManagerKey>()
+                        .ok_or_else(|| anyhow::anyhow!("Price manager not found"))?;
 
-                    // Calculate collection log points
-                    if let Some(points) = collection_log_manager.calculate_points(item_name).await {
+                    // Get item price
+                    if let Some(value) = price_manager.get_item_price(item_name).await {
                         let discord_id = command.user.id.to_string();
+                        let points = value / 100_000; // 1 point per 100,000 gp
 
                         // Insert or update user
                         sqlx::query!(
@@ -83,20 +84,21 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                         .execute(db)
                         .await?;
 
-                        // Record the collection log entry
+                        // Record the drop
                         sqlx::query!(
-                            "INSERT INTO collection_log_entries (discord_id, item_name, points) VALUES (?, ?, ?)",
+                            "INSERT INTO drops (discord_id, item_name, value) VALUES (?, ?, ?)",
                             discord_id,
                             item_name,
-                            points
+                            value
                         )
                         .execute(db)
                         .await?;
 
-                        // Update user points
+                        // Update user points and total drops
                         sqlx::query!(
                             "UPDATE users 
-                             SET points = points + ?
+                             SET points = points + ?,
+                                 total_drops = total_drops + 1
                              WHERE discord_id = ?",
                             points,
                             discord_id
@@ -126,8 +128,9 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                             match next_rank {
                                 Some(rank) => {
                                     format!(
-                                        "Collection log entry recorded: {} (+{} points)! You now have {} points. Next rank at {} points for {}!",
+                                        "Drop recorded: {} ({} gp) (+{} points)! You now have {} points. Next rank at {} points for {}!",
                                         item_name,
+                                        value,
                                         points,
                                         user_points.points,
                                         rank.points,
@@ -136,8 +139,9 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                                 }
                                 None => {
                                     format!(
-                                        "Collection log entry recorded: {} (+{} points)! You now have {} points!",
+                                        "Drop recorded: {} ({} gp) (+{} points)! You now have {} points!",
                                         item_name,
+                                        value,
                                         points,
                                         user_points.points
                                     )
@@ -145,8 +149,9 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                             }
                         } else {
                             format!(
-                                "Collection log entry recorded: {} (+{} points)! You now have {} points!",
+                                "Drop recorded: {} ({} gp) (+{} points)! You now have {} points!",
                                 item_name,
+                                value,
                                 points,
                                 user_points.points
                             )
@@ -161,7 +166,7 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                         command
                             .create_response(&ctx.http, CreateInteractionResponse::Message(
                                 CreateInteractionResponseMessage::new()
-                                    .content(format!("Item '{}' not found in collection log.", item_name))
+                                    .content(format!("Item '{}' not found in price database.", item_name))
                             ))
                             .await?;
                     }
