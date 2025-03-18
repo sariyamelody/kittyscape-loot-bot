@@ -1,4 +1,3 @@
-- only let users log clog slots once
 - default ranks thresholds - RS-style, logarithmic/exponential scale for rank thresholds
 - a /stats command or something similar that spits out a user profile with their name, rsn, clan rank, and point total + progress to next rank
 - record multiples of items in one /drop
