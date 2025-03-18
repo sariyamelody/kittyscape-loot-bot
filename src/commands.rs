@@ -425,8 +425,9 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                                 .unwrap_or_else(|| "Maximum".to_string());
 
                             let embed = CreateEmbed::new()
-                                .title(format!("{}'s Profile", command.user.name))
+                                .title(format!("{}'s Profile", command.member.as_ref().map(|m| m.display_name()).unwrap_or(&command.user.name)))
                                 .color(0x00ff00)
+                                .thumbnail(command.user.face())
                                 .field("Rank", rank_name, true)
                                 .field("Total Points", data.points.to_string(), true)
                                 .field("Total Drops", data.total_drops.to_string(), true)
@@ -441,8 +442,9 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                         }
                         None => {
                             let embed = CreateEmbed::new()
-                                .title(format!("{}'s Profile", command.user.name))
+                                .title(format!("{}'s Profile", command.member.as_ref().map(|m| m.display_name()).unwrap_or(&command.user.name)))
                                 .color(0xff0000)
+                                .thumbnail(command.user.face())
                                 .description("No stats recorded yet! Start using /drop or /clog to track your progress.");
 
                             command
