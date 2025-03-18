@@ -7,14 +7,21 @@ A Discord bot for tracking Old School RuneScape drops and collection log entries
 ```
 kittyscape-loot-bot/
 ├── src/
-│   ├── main.rs           # Bot initialization and event handling
-│   ├── commands.rs       # Command handlers and Discord interactions
-│   ├── prices.rs         # OSRS price data management
-│   └── collection_log.rs # Collection log data management
+│   ├── main.rs                    # Bot initialization and event handling
+│   ├── command_handler/
+│   │   ├── mod.rs                 # Command handler module and utilities
+│   │   ├── utils.rs               # Shared formatting utilities
+│   │   └── commands/              # Individual command implementations
+│   │       ├── drop.rs            # Drop command handler
+│   │       ├── clog.rs            # Collection log command handler
+│   │       ├── stats.rs           # Stats command handler
+│   │       └── leaderboard.rs     # Leaderboard command handler
+│   ├── prices.rs                  # OSRS price data management
+│   └── collection_log.rs          # Collection log data management
 ├── migrations/
 │   ├── 20240316000000_initial.sql        # Initial database schema
 │   └── 20240316000001_collection_log.sql # Collection log table
-└── Cargo.toml            # Project dependencies
+└── Cargo.toml                     # Project dependencies
 ```
 
 ## Core Components
@@ -24,15 +31,24 @@ kittyscape-loot-bot/
 - Updates prices every 5 minutes
 - Provides item suggestions for autocomplete
 - Used by `/drop` command to calculate points (1 point per 100,000 gp)
+- Maintains mappings of item names to IDs and latest prices
 
 ### CollectionLogManager
-- Fetches and maintains collection log completion rates from the wiki
+- Fetches collection log completion rates from the wiki API
+- Parses HTML data to extract item names and completion rates
 - Provides item suggestions for autocomplete
 - Used by `/clog` command to calculate points based on item rarity
 - Points calculation tiers:
-  - ≤5%: Exponential scaling
-  - 5-20%: Linear scaling
-  - \>20%: Base points
+  - ≤5%: Mega-rare items (exponential scaling)
+    - 5% → 500 points
+    - 3% → 1000 points
+    - 1% → 15000 points
+    - 0.5% → 30000 points
+  - 5-20%: Moderately rare items (linear interpolation)
+    - 20% → 200 points
+    - 5% → 500 points
+  - \>20%: Common items (linear scaling)
+    - Points = 100 - (completion_rate * 0.5)
 
 ### Database Schema
 - `users`: Stores user points and total drops
@@ -47,38 +63,36 @@ kittyscape-loot-bot/
 - Calculates points based on item value (1 point per 100,000 gp)
 - Updates user's total drops and points
 - Shows rank-up progress
+- Uses formatted numbers for better readability
+- Falls back to high alchemy value if market price unavailable
 
 ### `/clog <item>`
 - Records a collection log entry
 - Calculates points based on item rarity
 - Prevents duplicate entries
 - Shows rank-up progress
-
-### `/points`
-- Shows user's current points and total drops
-
-### `/leaderboard`
-- Displays top 10 users by points
-- Shows points and total drops for each user
+- Uses formatted numbers for better readability
 
 ### `/stats`
 - Shows detailed user profile in an embed
 - Displays:
   - User's display name and avatar
   - Current rank
-  - Total points and drops
-  - Progress to next rank
+  - Total points (formatted)
+  - Total drops (formatted)
+  - Collection log count (formatted)
+  - Progress to next rank with percentage
 
-## Rank System
-- Points thresholds defined in `rank_thresholds` table
-- Example thresholds:
-  ```sql
-  INSERT INTO rank_thresholds (points, role_name) VALUES
-  (1000000, 'Bronze Hunter'),
-  (10000000, 'Silver Hunter'),
-  (100000000, 'Gold Hunter'),
-  (1000000000, 'Platinum Hunter');
-  ```
+### `/leaderboard`
+- Displays top 10 users by points
+- Shows formatted points and total drops for each user
+
+## Utilities
+
+### Number Formatting
+- `format_points`: Formats point values with commas and "pts" suffix
+- `format_number`: Formats numbers with commas
+- `format_gp`: Formats gold piece values with commas and "gp" suffix
 
 ## Setup
 1. Create a Discord bot and get its token
@@ -95,7 +109,8 @@ kittyscape-loot-bot/
 - sqlx: Database operations
 - reqwest: HTTP requests for wiki API
 - tokio: Async runtime
-- tracing: Logging
+- tracing: Logging and debugging
 - anyhow: Error handling
 - serde: JSON serialization
-- html-escape: HTML entity decoding 
+- html-escape: HTML entity decoding
+- scraper: HTML parsing for wiki data 
