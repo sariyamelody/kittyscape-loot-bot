@@ -18,3 +18,4 @@ target/
 
 .env
 *.db
+*.db-*
