@@ -63,6 +63,10 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                     let value = price_manager.get_item_price(item_name).await
                         .ok_or_else(|| anyhow::anyhow!("Item not found or no price data available"))?;
 
+                    // Calculate points (1 point per 100,000 GP)
+                    let points = (value as f64 / 100_000.0).round() as i64;
+                    let points = points.max(1); // Minimum 1 point per drop
+
                     let discord_id = command.user.id.to_string();
 
                     // Insert or update user
@@ -91,7 +95,7 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                          SET points = points + ?,
                              total_drops = total_drops + 1
                          WHERE discord_id = ?",
-                        value,
+                        points,
                         discord_id
                     )
                     .execute(db)
@@ -119,9 +123,10 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                         match next_rank {
                             Some(rank) => {
                                 format!(
-                                    "Drop recorded: {} ({} gp)! You now have {} points. Next rank at {} points for {}!",
+                                    "Drop recorded: {} ({} gp, +{} points)! You now have {} points. Next rank at {} points for {}!",
                                     item_name,
                                     value,
+                                    points,
                                     user_points.points,
                                     rank.points,
                                     rank.role_name
@@ -129,18 +134,20 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                             }
                             None => {
                                 format!(
-                                    "Drop recorded: {} ({} gp)! You now have {} points!",
+                                    "Drop recorded: {} ({} gp, +{} points)! You now have {} points!",
                                     item_name,
                                     value,
+                                    points,
                                     user_points.points
                                 )
                             }
                         }
                     } else {
                         format!(
-                            "Drop recorded: {} ({} gp)! You now have {} points!",
+                            "Drop recorded: {} ({} gp, +{} points)! You now have {} points!",
                             item_name,
                             value,
+                            points,
                             user_points.points
                         )
                     };
