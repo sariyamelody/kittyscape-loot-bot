@@ -20,6 +20,12 @@ pub async fn handle_drop(
         .and_then(|opt| opt.value.as_str())
         .ok_or_else(|| anyhow::anyhow!("Item name not provided"))?;
 
+    let quantity = options
+        .iter()
+        .find(|opt| opt.name == "quantity")
+        .and_then(|opt| opt.value.as_i64())
+        .unwrap_or(1);
+
     // Get price manager from context data
     let data = ctx.data.read().await;
     let price_manager = data.get::<PriceManagerKey>()
@@ -28,7 +34,8 @@ pub async fn handle_drop(
     // Get item price
     if let Some(value) = price_manager.get_item_price(item_name).await {
         let discord_id = command.user.id.to_string();
-        let points = value / 100_000; // 1 point per 100,000 gp
+        let total_value = value * quantity;
+        let points = total_value / 100_000; // 1 point per 100,000 gp
 
         // Insert or update user
         sqlx::query!(
@@ -42,10 +49,11 @@ pub async fn handle_drop(
 
         // Record the drop
         sqlx::query!(
-            "INSERT INTO drops (discord_id, item_name, value) VALUES (?, ?, ?)",
+            "INSERT INTO drops (discord_id, item_name, value, quantity) VALUES (?, ?, ?, ?)",
             discord_id,
             item_name,
-            value
+            total_value,
+            quantity
         )
         .execute(db)
         .await?;
@@ -54,9 +62,10 @@ pub async fn handle_drop(
         sqlx::query!(
             "UPDATE users 
              SET points = points + ?,
-                 total_drops = total_drops + 1
+                 total_drops = total_drops + ?
              WHERE discord_id = ?",
             points,
+            quantity,
             discord_id
         )
         .execute(db)
@@ -84,9 +93,10 @@ pub async fn handle_drop(
             match next_rank {
                 Some(rank) => {
                     format!(
-                        "Drop recorded: {} ({}) (+{} points)! You now have {}. Next rank at {} points for {}!",
+                        "Drop recorded: {}x {} ({}) (+{} points)! You now have {}. Next rank at {} points for {}!",
+                        format_number(quantity),
                         item_name,
-                        format_gp(value),
+                        format_gp(total_value),
                         format_number(points),
                         format_points(user_points.points),
                         format_number(rank.points),
@@ -95,9 +105,10 @@ pub async fn handle_drop(
                 }
                 None => {
                     format!(
-                        "Drop recorded: {} ({}) (+{} points)! You now have {}!",
+                        "Drop recorded: {}x {} ({}) (+{} points)! You now have {}!",
+                        format_number(quantity),
                         item_name,
-                        format_gp(value),
+                        format_gp(total_value),
                         format_number(points),
                         format_points(user_points.points)
                     )
@@ -105,9 +116,10 @@ pub async fn handle_drop(
             }
         } else {
             format!(
-                "Drop recorded: {} ({}) (+{} points)! You now have {}!",
+                "Drop recorded: {}x {} ({}) (+{} points)! You now have {}!",
+                format_number(quantity),
                 item_name,
-                format_gp(value),
+                format_gp(total_value),
                 format_number(points),
                 format_points(user_points.points)
             )

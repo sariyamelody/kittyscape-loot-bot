@@ -31,7 +31,14 @@ pub async fn register_commands(ctx: &Context) -> Result<()> {
             "The name of the item"
         )
         .required(true)
-        .set_autocomplete(true)))
+        .set_autocomplete(true))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::Integer,
+            "quantity",
+            "The quantity of items (default: 1)"
+        )
+        .required(false)
+        .min_int_value(1)))
     .await?;
 
     Command::create_global_command(&ctx.http, CreateCommand::new("clog")

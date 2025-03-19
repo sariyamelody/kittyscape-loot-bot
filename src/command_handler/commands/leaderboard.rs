@@ -3,6 +3,8 @@ use serenity::all::{
     CommandInteraction,
     CreateInteractionResponse,
     CreateInteractionResponseMessage,
+    CreateEmbed,
+    UserId,
 };
 use sqlx::SqlitePool;
 use crate::command_handler::{format_points, format_number};
@@ -13,30 +15,44 @@ pub async fn handle_leaderboard(
     db: &SqlitePool,
 ) -> Result<()> {
     let top_users = sqlx::query!(
-        "SELECT u.discord_id, u.points, u.total_drops,
-                (SELECT COUNT(*) FROM collection_log_entries WHERE discord_id = u.discord_id) as total_clogs
-         FROM users u
-         ORDER BY u.points DESC 
-         LIMIT 10"
+        r#"WITH user_clogs AS (
+            SELECT discord_id, COUNT(*) as count
+            FROM collection_log_entries
+            GROUP BY discord_id
+        )
+        SELECT u.discord_id, u.points, u.total_drops, COALESCE(c.count, 0) as clog_count
+        FROM users u
+        LEFT JOIN user_clogs c ON u.discord_id = c.discord_id
+        ORDER BY u.points DESC
+        LIMIT 10"#
     )
     .fetch_all(db)
     .await?;
 
-    let mut message_content = String::from("🏆 **Top 10 Looters** 🏆\n");
+    let mut description = String::new();
     for (i, user) in top_users.iter().enumerate() {
-        message_content.push_str(&format!(
-            "{}. <@{}> - {} ({} drops, {} clogs)\n",
+        let discord_id = user.discord_id.clone().expect("Missing discord ID");
+        let user_id = UserId::new(discord_id.parse::<u64>().expect("Invalid discord ID"));
+        let user_name = ctx.http.get_user(user_id).await?.name;
+        description.push_str(&format!(
+            "{}. **{}**\n• Points: {}\n• Total Drops: {}\n• Collection Log: {}\n\n",
             i + 1,
-            user.discord_id.as_ref().unwrap_or(&"Unknown".to_string()),
+            user_name,
             format_points(user.points),
             format_number(user.total_drops),
-            format_number(user.total_clogs.unwrap_or(0) as i64)
+            format_number(user.clog_count.into())
         ));
     }
 
+    let embed = CreateEmbed::new()
+        .title("🏆 Top 10 Looters")
+        .description(description)
+        .color(0xffd700);
+
     command
         .create_response(&ctx.http, CreateInteractionResponse::Message(
-            CreateInteractionResponseMessage::new().content(message_content)
+            CreateInteractionResponseMessage::new()
+                .embed(embed)
         ))
         .await?;
 

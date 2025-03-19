@@ -16,6 +16,7 @@ kittyscape-loot-bot/
 │   │       ├── clog.rs            # Collection log command handler
 │   │       ├── stats.rs           # Stats command handler
 │   │       └── leaderboard.rs     # Leaderboard command handler
+│   │       └── drop.rs            # Drop command handler
 │   ├── prices.rs                  # OSRS price data management
 │   └── collection_log.rs          # Collection log data management
 ├── migrations/
@@ -58,13 +59,15 @@ kittyscape-loot-bot/
 
 ## Commands
 
-### `/drop <item>`
+### `/drop <item> [quantity]`
 - Records a tradeable item drop
-- Calculates points based on item value (1 point per 100,000 gp)
+- Optional quantity parameter (default: 1)
+- Calculates points based on total item value (1 point per 100,000 gp)
 - Updates user's total drops and points
 - Shows rank-up progress
 - Uses formatted numbers for better readability
 - Falls back to high alchemy value if market price unavailable
+- Example: `/drop dragon platelegs 7` for 7x dragon platelegs
 
 ### `/clog <item>`
 - Records a collection log entry
