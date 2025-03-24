@@ -54,3 +54,4 @@ INSERT INTO rank_thresholds (points, role_name) VALUES
 (100000000, 'Gold Hunter'),
 (1000000000, 'Platinum Hunter');
 ```
+For convenience, a default set of rank thresholds have been provided in `migrations/`.
