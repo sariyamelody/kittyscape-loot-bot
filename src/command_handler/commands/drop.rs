@@ -6,7 +6,7 @@ use serenity::all::{
 };
 use sqlx::SqlitePool;
 use crate::command_handler::{PriceManagerKey, format_gp, format_points, format_number};
-use crate::config::ConfigKey;
+use crate::rank_manager;
 
 pub async fn handle_drop(
     command: &CommandInteraction,
@@ -59,100 +59,48 @@ pub async fn handle_drop(
         .execute(db)
         .await?;
 
-        // Update user points and total drops
+        // Update total drops
         sqlx::query!(
             "UPDATE users 
-             SET points = points + ?,
-                 total_drops = total_drops + ?
+             SET total_drops = total_drops + ?
              WHERE discord_id = ?",
-            points,
             quantity,
             discord_id
         )
         .execute(db)
         .await?;
 
-        // Check for rank up
-        let user_points = sqlx::query!(
-            "SELECT points FROM users WHERE discord_id = ?",
-            discord_id
-        )
-        .fetch_one(db)
-        .await?;
+        // Add points and check for rank up
+        let points_update = rank_manager::add_points(
+            ctx,
+            &discord_id,
+            &command.user.name,
+            points,
+            db
+        ).await?;
 
-        // Get the next rank threshold
-        let (message_content, rank_up_notification) = if let Ok(next_rank) = sqlx::query!(
-            "SELECT points, role_name FROM rank_thresholds 
-             WHERE points > ? 
-             ORDER BY points ASC 
-             LIMIT 1",
-            user_points.points
-        )
-        .fetch_optional(db)
-        .await
-        {
-            match next_rank {
-                Some(rank) => {
-                    let user_name = command.user.name.clone();
-                    let rank_up_notification = if user_points.points >= rank.points {
-                        Some(format!(
-                            "🎉 **Rank Up Alert!**\n{} has reached {} points and is ready for the {} role!",
-                            user_name,
-                            format_points(user_points.points),
-                            rank.role_name
-                        ))
-                    } else {
-                        None
-                    };
-
-                    let message_content = format!(
-                        "Drop recorded: {}x {} ({}) (+{} points)! You now have {}. Next rank at {} points for {}!",
-                        format_number(quantity),
-                        item_name,
-                        format_gp(total_value),
-                        format_number(points),
-                        format_points(user_points.points),
-                        format_number(rank.points),
-                        rank.role_name
-                    );
-
-                    (message_content, rank_up_notification)
-                }
-                None => {
-                    let message_content = format!(
-                        "Drop recorded: {}x {} ({}) (+{} points)! You now have {}!",
-                        format_number(quantity),
-                        item_name,
-                        format_gp(total_value),
-                        format_number(points),
-                        format_points(user_points.points)
-                    );
-                    (message_content, None)
-                }
-            }
+        // Format response message
+        let message_content = if let Some((next_rank_points, next_rank_name)) = points_update.next_rank {
+            format!(
+                "Drop recorded: {}x {} ({}) (+{} points)! You now have {}. Next rank at {} points for {}!",
+                format_number(quantity),
+                item_name,
+                format_gp(total_value),
+                format_number(points),
+                format_points(points_update.new_points),
+                format_number(next_rank_points),
+                next_rank_name
+            )
         } else {
-            let message_content = format!(
+            format!(
                 "Drop recorded: {}x {} ({}) (+{} points)! You now have {}!",
                 format_number(quantity),
                 item_name,
                 format_gp(total_value),
                 format_number(points),
-                format_points(user_points.points)
-            );
-            (message_content, None)
+                format_points(points_update.new_points)
+            )
         };
-
-        // Send rank up notification to mod channel if applicable
-        if let Some(notification) = rank_up_notification {
-            if let Some(config) = data.get::<ConfigKey>() {
-                if let Err(why) = config.mod_channel_id
-                    .say(&ctx.http, notification)
-                    .await
-                {
-                    tracing::error!("Failed to send rank up notification: {:?}", why);
-                }
-            }
-        }
 
         command
             .create_response(&ctx.http, CreateInteractionResponse::Message(

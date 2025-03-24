@@ -6,6 +6,7 @@ use serenity::all::{
 };
 use sqlx::SqlitePool;
 use crate::command_handler::{CollectionLogManagerKey, format_points, format_number};
+use crate::rank_manager;
 
 pub async fn handle_clog(
     command: &CommandInteraction,
@@ -73,62 +74,31 @@ pub async fn handle_clog(
         .execute(db)
         .await?;
 
-        // Update user points
-        sqlx::query!(
-            "UPDATE users 
-             SET points = points + ?
-             WHERE discord_id = ?",
+        // Add points and check for rank up
+        let points_update = rank_manager::add_points(
+            ctx,
+            &discord_id,
+            &command.user.name,
             points,
-            discord_id
-        )
-        .execute(db)
-        .await?;
+            db
+        ).await?;
 
-        // Check for rank up
-        let user_points = sqlx::query!(
-            "SELECT points FROM users WHERE discord_id = ?",
-            discord_id
-        )
-        .fetch_one(db)
-        .await?;
-
-        // Get the next rank threshold
-        let message_content = if let Ok(next_rank) = sqlx::query!(
-            "SELECT points, role_name FROM rank_thresholds 
-             WHERE points > ? 
-             ORDER BY points ASC 
-             LIMIT 1",
-            user_points.points
-        )
-        .fetch_optional(db)
-        .await
-        {
-            match next_rank {
-                Some(rank) => {
-                    format!(
-                        "Collection log entry recorded: {} (+{} points)! You now have {}. Next rank at {} points for {}!",
-                        item_name,
-                        format_number(points),
-                        format_points(user_points.points),
-                        format_number(rank.points),
-                        rank.role_name
-                    )
-                }
-                None => {
-                    format!(
-                        "Collection log entry recorded: {} (+{} points)! You now have {}!",
-                        item_name,
-                        format_number(points),
-                        format_points(user_points.points)
-                    )
-                }
-            }
+        // Format response message
+        let message_content = if let Some((next_rank_points, next_rank_name)) = points_update.next_rank {
+            format!(
+                "Collection log entry recorded: {} (+{} points)! You now have {}. Next rank at {} points for {}!",
+                item_name,
+                format_number(points),
+                format_points(points_update.new_points),
+                format_number(next_rank_points),
+                next_rank_name
+            )
         } else {
             format!(
                 "Collection log entry recorded: {} (+{} points)! You now have {}!",
                 item_name,
                 format_number(points),
-                format_points(user_points.points)
+                format_points(points_update.new_points)
             )
         };
 

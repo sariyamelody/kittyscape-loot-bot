@@ -2,6 +2,7 @@ mod command_handler;
 mod prices;
 mod collection_log;
 mod config;
+mod rank_manager;
 
 use anyhow::Result;
 use serenity::all::{

@@ -16,12 +16,13 @@ kittyscape-loot-bot/
 │   │       ├── clog.rs            # Collection log command handler
 │   │       ├── stats.rs           # Stats command handler
 │   │       └── leaderboard.rs     # Leaderboard command handler
-│   │       └── drop.rs            # Drop command handler
+│   ├── rank_manager.rs            # Rank management and notifications
 │   ├── prices.rs                  # OSRS price data management
 │   └── collection_log.rs          # Collection log data management
 ├── migrations/
 │   ├── 20240316000000_initial.sql        # Initial database schema
-│   └── 20240316000001_collection_log.sql # Collection log table
+│   ├── 20240316000001_collection_log.sql # Collection log table
+│   └── 20240317000000_rank_tiers.sql     # Default rank tiers
 └── Cargo.toml                     # Project dependencies
 ```
 
@@ -50,6 +51,23 @@ kittyscape-loot-bot/
     - 5% → 500 points
   - \>20%: Common items (linear scaling)
     - Points = 100 - (completion_rate * 0.5)
+
+### RankManager
+- Manages user points and rank progression
+- Handles rank-up notifications in mod channel
+- Rank tiers:
+  - 0-999: Small Fry
+  - 1k-2,999: Purrveyor
+  - 3,000-7,999: Journeycat
+  - 8,000-14,999: Meowster
+  - 15,000-29,999: Pawfficer
+  - 30,000-49,999: Mewtenant
+  - 50,000-74,999: Admeowral
+  - 75,000-99,999: Grandmeowster
+  - 100,000+: Prestige Grandmeowster I-V (10k increments)
+  - 150,000+: Exalted Grandmeowster I-V (10k increments)
+  - 200,000+: Divine Grandmeowster I-V (10k increments)
+  - 250,000+: Eternal Grandmeowster
 
 ### Database Schema
 - `users`: Stores user points and total drops
@@ -103,9 +121,15 @@ kittyscape-loot-bot/
    ```
    DISCORD_TOKEN=your_discord_bot_token_here
    DATABASE_URL=sqlite:kittyscape.db
+   MOD_CHANNEL_ID=your_mod_channel_id_here
    ```
 3. Run migrations to set up the database
 4. Start the bot with `cargo run`
+
+## Required Bot Permissions
+- View Channels
+- Send Messages (including in the mod channel specified by MOD_CHANNEL_ID)
+- Use Slash Commands
 
 ## Dependencies
 - serenity: Discord bot framework
