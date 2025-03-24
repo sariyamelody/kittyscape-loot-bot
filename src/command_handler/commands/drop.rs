@@ -6,6 +6,7 @@ use serenity::all::{
 };
 use sqlx::SqlitePool;
 use crate::command_handler::{PriceManagerKey, format_gp, format_points, format_number};
+use crate::config::ConfigKey;
 
 pub async fn handle_drop(
     command: &CommandInteraction,
@@ -80,7 +81,7 @@ pub async fn handle_drop(
         .await?;
 
         // Get the next rank threshold
-        let message_content = if let Ok(next_rank) = sqlx::query!(
+        let (message_content, rank_up_notification) = if let Ok(next_rank) = sqlx::query!(
             "SELECT points, role_name FROM rank_thresholds 
              WHERE points > ? 
              ORDER BY points ASC 
@@ -92,7 +93,19 @@ pub async fn handle_drop(
         {
             match next_rank {
                 Some(rank) => {
-                    format!(
+                    let user_name = command.user.name.clone();
+                    let rank_up_notification = if user_points.points >= rank.points {
+                        Some(format!(
+                            "🎉 **Rank Up Alert!**\n{} has reached {} points and is ready for the {} role!",
+                            user_name,
+                            format_points(user_points.points),
+                            rank.role_name
+                        ))
+                    } else {
+                        None
+                    };
+
+                    let message_content = format!(
                         "Drop recorded: {}x {} ({}) (+{} points)! You now have {}. Next rank at {} points for {}!",
                         format_number(quantity),
                         item_name,
@@ -101,29 +114,45 @@ pub async fn handle_drop(
                         format_points(user_points.points),
                         format_number(rank.points),
                         rank.role_name
-                    )
+                    );
+
+                    (message_content, rank_up_notification)
                 }
                 None => {
-                    format!(
+                    let message_content = format!(
                         "Drop recorded: {}x {} ({}) (+{} points)! You now have {}!",
                         format_number(quantity),
                         item_name,
                         format_gp(total_value),
                         format_number(points),
                         format_points(user_points.points)
-                    )
+                    );
+                    (message_content, None)
                 }
             }
         } else {
-            format!(
+            let message_content = format!(
                 "Drop recorded: {}x {} ({}) (+{} points)! You now have {}!",
                 format_number(quantity),
                 item_name,
                 format_gp(total_value),
                 format_number(points),
                 format_points(user_points.points)
-            )
+            );
+            (message_content, None)
         };
+
+        // Send rank up notification to mod channel if applicable
+        if let Some(notification) = rank_up_notification {
+            if let Some(config) = data.get::<ConfigKey>() {
+                if let Err(why) = config.mod_channel_id
+                    .say(&ctx.http, notification)
+                    .await
+                {
+                    tracing::error!("Failed to send rank up notification: {:?}", why);
+                }
+            }
+        }
 
         command
             .create_response(&ctx.http, CreateInteractionResponse::Message(

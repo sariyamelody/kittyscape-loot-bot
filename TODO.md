@@ -1,5 +1,3 @@
 - default ranks thresholds - RS-style, logarithmic/exponential scale for rank thresholds
-- record multiples of items in one /drop
 - top by month tracker
-- automated rank management for point thresholds - initially have bot ping mods to do the update, maybe later have the bot automatically manage the role assignment
-- format all numbers with commas
+- automated rank management for point thresholds -  have the bot automatically manage the role assignment

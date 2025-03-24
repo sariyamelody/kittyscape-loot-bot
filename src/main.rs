@@ -1,6 +1,7 @@
 mod command_handler;
 mod prices;
 mod collection_log;
+mod config;
 
 use anyhow::Result;
 use serenity::all::{
@@ -17,6 +18,7 @@ use std::sync::Arc;
 use dotenvy::dotenv;
 use tracing::{error, info};
 use command_handler::{PriceManagerKey, CollectionLogManagerKey};
+use config::{Config, ConfigKey};
 
 struct Handler {
     db: SqlitePool,
@@ -66,6 +68,9 @@ async fn main() -> Result<()> {
     let token = env::var("DISCORD_TOKEN")?;
     let database_url = env::var("DATABASE_URL")?;
 
+    // Initialize config
+    let config = Config::from_env()?;
+
     // Create database connection pool
     let db = SqlitePoolOptions::new()
         .max_connections(5)
@@ -88,6 +93,12 @@ async fn main() -> Result<()> {
             collection_log_manager: Arc::clone(&collection_log_manager),
         })
         .await?;
+
+    // Store config in client data
+    {
+        let mut data = client.data.write().await;
+        data.insert::<ConfigKey>(config);
+    }
 
     // Start the client
     if let Err(why) = client.start().await {
