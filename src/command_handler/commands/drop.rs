@@ -74,7 +74,9 @@ pub async fn handle_drop(
         let points_update = rank_manager::add_points(
             ctx,
             &discord_id,
-            &command.user.name,
+            &command.member.as_ref()
+                .and_then(|m| Some(m.display_name()))
+                .unwrap_or(&command.user.name),
             points,
             db
         ).await?;

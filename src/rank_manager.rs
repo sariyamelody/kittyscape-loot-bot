@@ -54,31 +54,53 @@ pub async fn add_points(
     let crossed_ranks = sqlx::query!(
         "SELECT points, role_name FROM rank_thresholds 
          WHERE points > ? AND points <= ?
-         ORDER BY points DESC",
+         ORDER BY points ASC",
         old_points,
         new_points
     )
     .fetch_all(db)
     .await?;
 
-    // Send notifications for any crossed rank thresholds
+    // Send notification if ranks were crossed
     if !crossed_ranks.is_empty() {
         let data = ctx.data.read().await;
         if let Some(config) = data.get::<ConfigKey>() {
-            for rank in crossed_ranks {
-                let notification = format!(
+            // Format ranks list
+            let ranks_text = if crossed_ranks.len() == 1 {
+                crossed_ranks[0].role_name.clone()
+            } else {
+                let ranks: Vec<_> = crossed_ranks.iter().map(|r| r.role_name.as_str()).collect();
+                match ranks.len() {
+                    2 => format!("{} and {}", ranks[0], ranks[1]),
+                    _ => {
+                        let (last, rest) = ranks.split_last().unwrap();
+                        format!("{}, and {}", rest.join(", "), last)
+                    }
+                }
+            };
+
+            // Create notification with all crossed ranks
+            let notification = if crossed_ranks.len() == 1 {
+                format!(
                     "🎉 **Rank Up Alert!**\n{} has reached {} points and is ready for the {} role!",
                     user_name,
                     format_points(new_points),
-                    rank.role_name
-                );
+                    ranks_text
+                )
+            } else {
+                format!(
+                    "🎉 **Multiple Rank Up Alert!**\n{} has reached {} points and is ready for the following roles: {}!",
+                    user_name,
+                    format_points(new_points),
+                    ranks_text
+                )
+            };
 
-                if let Err(why) = config.mod_channel_id
-                    .say(&ctx.http, notification)
-                    .await
-                {
-                    tracing::error!("Failed to send rank up notification: {:?}", why);
-                }
+            if let Err(why) = config.mod_channel_id
+                .say(&ctx.http, notification)
+                .await
+            {
+                tracing::error!("Failed to send rank up notification: {:?}", why);
             }
         }
     }

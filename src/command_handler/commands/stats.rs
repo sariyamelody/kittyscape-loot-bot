@@ -213,7 +213,9 @@ pub async fn handle_stats(
                 .unwrap_or_else(|| "No collection log entries yet".to_string());
 
             let embed = CreateEmbed::new()
-                .title(format!("{}'s Profile", command.member.as_ref().map(|m| m.display_name()).unwrap_or(&command.user.name)))
+                .title(format!("{}'s Profile", command.member.as_ref()
+                    .and_then(|m| Some(m.display_name()))
+                    .unwrap_or(&command.user.name)))
                 .color(0x00ff00)
                 .thumbnail(command.user.face())
                 .field("Rank", rank_name, true)
@@ -237,7 +239,9 @@ pub async fn handle_stats(
         }
         None => {
             let embed = CreateEmbed::new()
-                .title(format!("{}'s Profile", command.member.as_ref().map(|m| m.display_name()).unwrap_or(&command.user.name)))
+                .title(format!("{}'s Profile", command.member.as_ref()
+                    .and_then(|m| Some(m.display_name()))
+                    .unwrap_or(&command.user.name)))
                 .color(0xff0000)
                 .thumbnail(command.user.face())
                 .description("No stats recorded yet! Start using /drop or /clog to track your progress.");
