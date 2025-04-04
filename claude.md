@@ -54,7 +54,9 @@ kittyscape-loot-bot/
 
 ### RankManager
 - Manages user points and rank progression
-- Handles rank-up notifications in mod channel
+- Handles rank-up notifications:
+  - Sends notification to moderator channel when users rank up
+  - Displays celebration message with firework emojis in the command channel when a user ranks up
 - Rank tiers:
   - 0-999: Small Fry
   - 1k-2,999: Purrveyor
@@ -83,6 +85,7 @@ kittyscape-loot-bot/
 - Calculates points based on total item value (1 point per 100,000 gp)
 - Updates user's total drops and points
 - Shows rank-up progress
+- Displays celebratory message with firework emojis when ranking up
 - Uses formatted numbers for better readability
 - Falls back to high alchemy value if market price unavailable
 - Example: `/drop dragon platelegs 7` for 7x dragon platelegs
@@ -92,6 +95,7 @@ kittyscape-loot-bot/
 - Calculates points based on item rarity
 - Prevents duplicate entries
 - Shows rank-up progress
+- Displays celebratory message with firework emojis when ranking up
 - Uses formatted numbers for better readability
 
 ### `/stats`
@@ -106,7 +110,13 @@ kittyscape-loot-bot/
 
 ### `/leaderboard`
 - Displays top 10 users by points
-- Shows formatted points and total drops for each user
+- Shows top 5 droppers for the past 30 days:
+  - Total drops and value
+  - Most valuable item dropped
+- Shows top 5 collection loggers for the past 30 days:
+  - Total entries and points
+  - Rarest/most valuable item logged
+- Uses formatted values for better readability
 
 ## Utilities
 
