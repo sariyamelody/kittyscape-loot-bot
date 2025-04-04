@@ -86,7 +86,36 @@ pub async fn handle_clog(
         ).await?;
 
         // Format response message
-        let message_content = if let Some((next_rank_points, next_rank_name)) = points_update.next_rank {
+        let message_content = if !points_update.crossed_ranks.is_empty() {
+            // User ranked up!
+            let rank_text = if points_update.crossed_ranks.len() == 1 {
+                format!("the {} rank", points_update.crossed_ranks[0])
+            } else {
+                let ranks: Vec<_> = points_update.crossed_ranks.iter().map(|r| r.as_str()).collect();
+                match ranks.len() {
+                    2 => format!("the {} and {} ranks", ranks[0], ranks[1]),
+                    _ => {
+                        let (last, rest) = ranks.split_last().unwrap();
+                        format!("the {}, and {} ranks", rest.join(", "), last)
+                    }
+                }
+            };
+            
+            let next_rank_info = if let Some((next_rank_points, next_rank_name)) = &points_update.next_rank {
+                format!(" Next rank at {} points for {}!", format_number(*next_rank_points), next_rank_name)
+            } else {
+                "".to_string()
+            };
+            
+            format!(
+                "🎆 🎇 **RANK UP!** 🎇 🎆\nCollection log entry recorded: {} (+{} points)! You now have {} and achieved {}!{}",
+                item_name,
+                format_number(points),
+                format_points(points_update.new_points),
+                rank_text,
+                next_rank_info
+            )
+        } else if let Some((next_rank_points, next_rank_name)) = points_update.next_rank {
             format!(
                 "Collection log entry recorded: {} (+{} points)! You now have {}. Next rank at {} points for {}!",
                 item_name,

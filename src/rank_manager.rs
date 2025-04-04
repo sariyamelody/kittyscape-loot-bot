@@ -8,6 +8,7 @@ pub struct PointsUpdate {
     pub old_points: i64,
     pub new_points: i64,
     pub next_rank: Option<(i64, String)>,
+    pub crossed_ranks: Vec<String>,
 }
 
 pub async fn add_points(
@@ -60,6 +61,11 @@ pub async fn add_points(
     )
     .fetch_all(db)
     .await?;
+
+    // Extract crossed rank names
+    let rank_names: Vec<String> = crossed_ranks.iter()
+        .map(|r| r.role_name.clone())
+        .collect();
 
     // Send notification if ranks were crossed
     if !crossed_ranks.is_empty() {
@@ -121,6 +127,7 @@ pub async fn add_points(
         old_points,
         new_points,
         next_rank,
+        crossed_ranks: rank_names,
     })
 }
 

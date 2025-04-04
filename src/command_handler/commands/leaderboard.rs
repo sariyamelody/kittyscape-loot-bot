@@ -36,27 +36,30 @@ pub async fn handle_leaderboard(
             SELECT discord_id,
                    COUNT(*) as drop_count,
                    SUM(value) as total_value,
-                   MAX(value) as best_drop_value,
-                   (SELECT item_name 
-                    FROM drops d2 
-                    WHERE d2.discord_id = d1.discord_id 
-                    AND d2.timestamp >= datetime('now', '-30 days')
-                    AND d2.value = (
-                        SELECT MAX(value) 
-                        FROM drops d3 
-                        WHERE d3.discord_id = d1.discord_id 
-                        AND d3.timestamp >= datetime('now', '-30 days')
-                    )
-                    LIMIT 1) as best_drop_name
-            FROM drops d1
+                   MAX(value) as best_drop_value
+            FROM drops
             WHERE timestamp >= datetime('now', '-30 days')
             GROUP BY discord_id
             ORDER BY total_value DESC
             LIMIT 5
+        ),
+        best_drops AS (
+            SELECT d1.discord_id, d1.item_name as best_drop_name
+            FROM drops d1
+            JOIN monthly_drops m ON d1.discord_id = m.discord_id
+            WHERE d1.timestamp >= datetime('now', '-30 days')
+            AND d1.value = (
+                SELECT MAX(value)
+                FROM drops d2
+                WHERE d2.discord_id = d1.discord_id
+                AND d2.timestamp >= datetime('now', '-30 days')
+            )
+            GROUP BY d1.discord_id
         )
-        SELECT d.*, u.points
-        FROM monthly_drops d
-        JOIN users u ON d.discord_id = u.discord_id"#
+        SELECT m.discord_id, m.drop_count, m.total_value, m.best_drop_value, b.best_drop_name, u.points
+        FROM monthly_drops m
+        LEFT JOIN best_drops b ON m.discord_id = b.discord_id
+        JOIN users u ON m.discord_id = u.discord_id"#
     )
     .fetch_all(db)
     .await?;
@@ -67,27 +70,30 @@ pub async fn handle_leaderboard(
             SELECT discord_id,
                    COUNT(*) as entry_count,
                    SUM(points) as total_points,
-                   MAX(points) as best_entry_points,
-                   (SELECT item_name 
-                    FROM collection_log_entries c2 
-                    WHERE c2.discord_id = c1.discord_id 
-                    AND c2.timestamp >= datetime('now', '-30 days')
-                    AND c2.points = (
-                        SELECT MAX(points) 
-                        FROM collection_log_entries c3 
-                        WHERE c3.discord_id = c1.discord_id 
-                        AND c3.timestamp >= datetime('now', '-30 days')
-                    )
-                    LIMIT 1) as best_entry_name
-            FROM collection_log_entries c1
+                   MAX(points) as best_entry_points
+            FROM collection_log_entries
             WHERE timestamp >= datetime('now', '-30 days')
             GROUP BY discord_id
             ORDER BY entry_count DESC
             LIMIT 5
+        ),
+        best_entries AS (
+            SELECT c1.discord_id, c1.item_name as best_entry_name
+            FROM collection_log_entries c1
+            JOIN monthly_clogs m ON c1.discord_id = m.discord_id
+            WHERE c1.timestamp >= datetime('now', '-30 days')
+            AND c1.points = (
+                SELECT MAX(points)
+                FROM collection_log_entries c2
+                WHERE c2.discord_id = c1.discord_id
+                AND c2.timestamp >= datetime('now', '-30 days')
+            )
+            GROUP BY c1.discord_id
         )
-        SELECT c.*, u.points
-        FROM monthly_clogs c
-        JOIN users u ON c.discord_id = u.discord_id"#
+        SELECT m.discord_id, m.entry_count, m.total_points, m.best_entry_points, b.best_entry_name, u.points
+        FROM monthly_clogs m
+        LEFT JOIN best_entries b ON m.discord_id = b.discord_id
+        JOIN users u ON m.discord_id = u.discord_id"#
     )
     .fetch_all(db)
     .await?;
@@ -111,49 +117,59 @@ pub async fn handle_leaderboard(
     // Format monthly droppers
     let mut monthly_drops = String::new();
     for (i, user) in top_droppers.iter().enumerate() {
-        let discord_id = user.discord_id.clone();
+        let discord_id = user.discord_id.clone().expect("Missing discord ID");
         let user_id = UserId::new(discord_id.parse::<u64>().expect("Invalid discord ID"));
         let user_name = ctx.http.get_user(user_id).await?.name;
-        let best_drop = if let Some(name) = &user.best_drop_name {
-            format!("\n• Best Drop: {} ({})", name, format_gp(user.best_drop_value.into()))
-        } else {
-            String::new()
+        
+        let best_drop = match &user.best_drop_name {
+            Some(name) => format!("\n• Best Drop: {} ({})", name, format_gp(user.best_drop_value.unwrap_or(0) as i64)),
+            None => String::new()
         };
+        
         monthly_drops.push_str(&format!(
-            "{}. **{}**\n• Drops: {}\n• Total Value: {}{}\n",
+            "{}. **{}**\n• Drops: {}\n• Total Value: {}{}",
             i + 1,
             user_name,
-            format_number(user.drop_count.into()),
-            format_gp(user.total_value.into()),
+            format_number(user.drop_count.unwrap_or(0) as i64),
+            format_gp(user.total_value.unwrap_or(0) as i64),
             best_drop
         ));
+        
+        if i < top_droppers.len() - 1 {
+            monthly_drops.push_str("\n\n");
+        }
     }
     if monthly_drops.is_empty() {
-        monthly_drops = "No drops recorded this month".to_string();
+        monthly_drops = "No drops recorded in the past 30 days".to_string();
     }
 
     // Format monthly collection loggers
     let mut monthly_clogs = String::new();
     for (i, user) in top_cloggers.iter().enumerate() {
-        let discord_id = user.discord_id.clone();
+        let discord_id = user.discord_id.clone().expect("Missing discord ID");
         let user_id = UserId::new(discord_id.parse::<u64>().expect("Invalid discord ID"));
         let user_name = ctx.http.get_user(user_id).await?.name;
-        let best_entry = if let Some(name) = &user.best_entry_name {
-            format!("\n• Best Entry: {} ({})", name, format_points(user.best_entry_points.into()))
-        } else {
-            String::new()
+        
+        let best_entry = match &user.best_entry_name {
+            Some(name) => format!("\n• Best Entry: {} ({})", name, format_points(user.best_entry_points.unwrap_or(0))),
+            None => String::new()
         };
+        
         monthly_clogs.push_str(&format!(
-            "{}. **{}**\n• Entries: {}\n• Points: {}{}\n",
+            "{}. **{}**\n• Entries: {}\n• Points: {}{}",
             i + 1,
             user_name,
-            format_number(user.entry_count.into()),
-            format_points(user.total_points.into()),
+            format_number(user.entry_count.unwrap_or(0)),
+            format_points(user.total_points.unwrap_or(0)),
             best_entry
         ));
+        
+        if i < top_cloggers.len() - 1 {
+            monthly_clogs.push_str("\n\n");
+        }
     }
     if monthly_clogs.is_empty() {
-        monthly_clogs = "No collection log entries this month".to_string();
+        monthly_clogs = "No collection log entries in the past 30 days".to_string();
     }
 
     let embed = CreateEmbed::new()

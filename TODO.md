@@ -1,3 +1,1 @@
-- default ranks thresholds - RS-style, logarithmic/exponential scale for rank thresholds
-- top by month tracker
 - automated rank management for point thresholds -  have the bot automatically manage the role assignment
