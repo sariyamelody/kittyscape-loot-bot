@@ -15,7 +15,9 @@ kittyscape-loot-bot/
 │   │       ├── drop.rs            # Drop command handler
 │   │       ├── clog.rs            # Collection log command handler
 │   │       ├── stats.rs           # Stats command handler
-│   │       └── leaderboard.rs     # Leaderboard command handler
+│   │       ├── leaderboard.rs     # Leaderboard command handler
+│   │       ├── drop_remove.rs     # Drop remove command handler
+│   │       └── clog_remove.rs     # Collection log remove command handler
 │   ├── rank_manager.rs            # Rank management and notifications
 │   ├── prices.rs                  # OSRS price data management
 │   └── collection_log.rs          # Collection log data management
@@ -90,6 +92,15 @@ kittyscape-loot-bot/
 - Falls back to high alchemy value if market price unavailable
 - Example: `/drop dragon platelegs 7` for 7x dragon platelegs
 
+### `/drop_remove [id]`
+- Removes a mistakenly added drop entry
+- Features autocomplete that shows recent drops with their details
+- Shows a list of most recent drops when used without parameters
+- When providing an ID, removes the specific drop and deducts the points
+- Updates user's total drops and points
+- Shows rank-down notification if user loses ranks
+- Transaction-based to ensure data consistency
+
 ### `/clog <item>`
 - Records a collection log entry
 - Calculates points based on item rarity
@@ -97,6 +108,14 @@ kittyscape-loot-bot/
 - Shows rank-up progress
 - Displays celebratory message with firework emojis when ranking up
 - Uses formatted numbers for better readability
+
+### `/clog_remove [id]`
+- Removes a mistakenly added collection log entry
+- Features autocomplete that shows recent entries with their point values
+- Shows a list of most recent entries when used without parameters
+- When providing an ID, removes the specific entry and deducts the points
+- Shows rank-down notification if user loses ranks
+- Transaction-based to ensure data consistency
 
 ### `/stats`
 - Shows detailed user profile in an embed

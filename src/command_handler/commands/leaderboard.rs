@@ -151,7 +151,7 @@ pub async fn handle_leaderboard(
         let user_name = ctx.http.get_user(user_id).await?.name;
         
         let best_entry = match &user.best_entry_name {
-            Some(name) => format!("\n• Best Entry: {} ({})", name, format_points(user.best_entry_points.unwrap_or(0))),
+            Some(name) => format!("\n• Best Entry: {} ({})", name, format_points(user.best_entry_points.unwrap_or(0).into())),
             None => String::new()
         };
         
@@ -159,8 +159,8 @@ pub async fn handle_leaderboard(
             "{}. **{}**\n• Entries: {}\n• Points: {}{}",
             i + 1,
             user_name,
-            format_number(user.entry_count.unwrap_or(0)),
-            format_points(user.total_points.unwrap_or(0)),
+            format_number(user.entry_count.unwrap_or(0).into()),
+            format_points(user.total_points.unwrap_or(0).into()),
             best_entry
         ));
         
