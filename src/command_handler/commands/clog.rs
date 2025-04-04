@@ -7,6 +7,7 @@ use serenity::all::{
 use sqlx::SqlitePool;
 use crate::command_handler::{CollectionLogManagerKey, format_points, format_number};
 use crate::rank_manager;
+use crate::logger;
 
 pub async fn handle_clog(
     command: &CommandInteraction,
@@ -73,6 +74,14 @@ pub async fn handle_clog(
         )
         .execute(db)
         .await?;
+        
+        // Log the collection log entry
+        logger::log_action(
+            ctx,
+            &discord_id,
+            "ADDED CLOG",
+            &format!("{} ({} pts)", item_name, format_number(points))
+        ).await?;
 
         // Add points and check for rank up
         let points_update = rank_manager::add_points(

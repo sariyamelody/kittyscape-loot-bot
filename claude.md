@@ -20,7 +20,8 @@ kittyscape-loot-bot/
 │   │       └── clog_remove.rs     # Collection log remove command handler
 │   ├── rank_manager.rs            # Rank management and notifications
 │   ├── prices.rs                  # OSRS price data management
-│   └── collection_log.rs          # Collection log data management
+│   ├── collection_log.rs          # Collection log data management
+│   └── logger.rs                  # Action logging to log channel
 ├── migrations/
 │   ├── 20240316000000_initial.sql        # Initial database schema
 │   ├── 20240316000001_collection_log.sql # Collection log table
@@ -78,6 +79,15 @@ kittyscape-loot-bot/
 - `drops`: Records individual drops with values
 - `collection_log_entries`: Records collection log items
 - `rank_thresholds`: Defines point thresholds for ranks
+
+### Logger
+- Logs all user actions to a dedicated channel
+- Records timestamps, user info, and action details for auditing
+- Useful for tracking changes to the database and investigating issues
+- Actions logged include:
+  - Adding drops and collection log entries
+  - Removing drops and collection log entries
+  - Rank up/down events
 
 ## Commands
 
@@ -151,6 +161,7 @@ kittyscape-loot-bot/
    DISCORD_TOKEN=your_discord_bot_token_here
    DATABASE_URL=sqlite:kittyscape.db
    MOD_CHANNEL_ID=your_mod_channel_id_here
+   BOT_LOG_CHANNEL_ID=your_log_channel_id_here
    ```
 3. Run migrations to set up the database
 4. Start the bot with `cargo run`

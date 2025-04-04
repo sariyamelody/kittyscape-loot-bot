@@ -7,6 +7,7 @@ use serenity::all::{
 use sqlx::SqlitePool;
 use crate::command_handler::format_gp;
 use crate::rank_manager;
+use crate::logger;
 
 pub async fn handle_drop_remove(
     command: &CommandInteraction,
@@ -116,6 +117,14 @@ pub async fn handle_drop_remove(
             )
             .execute(&mut *tx)
             .await?;
+            
+            // Log the drop removal
+            logger::log_action(
+                ctx,
+                &discord_id,
+                "REMOVED DROP",
+                &format!("{}x {} ({}) [ID: {}]", drop.quantity, drop.item_name, format_gp(drop.value), drop.id)
+            ).await?;
             
             // Commit transaction
             tx.commit().await?;

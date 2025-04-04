@@ -3,6 +3,7 @@ mod prices;
 mod collection_log;
 mod config;
 mod rank_manager;
+mod logger;
 
 use anyhow::Result;
 use serenity::all::{

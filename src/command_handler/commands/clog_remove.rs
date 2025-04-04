@@ -6,6 +6,7 @@ use serenity::all::{
 };
 use sqlx::SqlitePool;
 use crate::rank_manager;
+use crate::logger;
 
 pub async fn handle_clog_remove(
     command: &CommandInteraction,
@@ -100,6 +101,14 @@ pub async fn handle_clog_remove(
             )
             .execute(&mut *tx)
             .await?;
+            
+            // Log the collection log entry removal
+            logger::log_action(
+                ctx,
+                &discord_id,
+                "REMOVED CLOG",
+                &format!("{} ({} pts) [ID: {}]", entry.item_name, entry.points, entry.id)
+            ).await?;
             
             // Commit transaction
             tx.commit().await?;

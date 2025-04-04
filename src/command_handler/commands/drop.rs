@@ -7,6 +7,7 @@ use serenity::all::{
 use sqlx::SqlitePool;
 use crate::command_handler::{PriceManagerKey, format_gp, format_points, format_number};
 use crate::rank_manager;
+use crate::logger;
 
 pub async fn handle_drop(
     command: &CommandInteraction,
@@ -58,6 +59,14 @@ pub async fn handle_drop(
         )
         .execute(db)
         .await?;
+
+        // Log the drop
+        logger::log_action(
+            ctx,
+            &discord_id,
+            "ADDED DROP",
+            &format!("{}x {} ({})", quantity, item_name, format_gp(total_value))
+        ).await?;
 
         // Update total drops
         sqlx::query!(
