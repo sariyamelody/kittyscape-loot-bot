@@ -1,5 +1,4 @@
-use anyhow::Result;
-use serenity::all::{
+use anyhow::Result;use serenity::all::{
     Command,
     CommandOptionType,
     Interaction,
@@ -77,15 +76,39 @@ pub async fn register_commands(ctx: &Context) -> Result<()> {
     .await?;
 
     Command::create_global_command(&ctx.http, CreateCommand::new("points")
-        .description("Check your current points"))
+        .description("Check your points total"))
     .await?;
 
     Command::create_global_command(&ctx.http, CreateCommand::new("leaderboard")
-        .description("View the top 10 looters"))
+        .description("View the points leaderboard"))
     .await?;
 
     Command::create_global_command(&ctx.http, CreateCommand::new("stats")
-        .description("View your detailed profile stats"))
+        .description("View detailed statistics for your account"))
+    .await?;
+        
+    Command::create_global_command(&ctx.http, CreateCommand::new("rsname")
+        .description("Link a RuneScape username to your Discord account")
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::String,
+            "username",
+            "Your RuneScape username"
+        )
+        .required(true)))
+    .await?;
+
+    Command::create_global_command(&ctx.http, CreateCommand::new("rsname_remove")
+        .description("Unlink a RuneScape username from your Discord account")
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::String,
+            "username",
+            "The RuneScape username to unlink"
+        )
+        .required(true)))
+    .await?;
+
+    Command::create_global_command(&ctx.http, CreateCommand::new("rsnames")
+        .description("List all RuneScape accounts linked to your Discord account"))
     .await?;
 
     Ok(())
@@ -102,6 +125,9 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
                 "points" => handle_points(command, ctx, db).await?,
                 "leaderboard" => handle_leaderboard(command, ctx, db).await?,
                 "stats" => handle_stats(command, ctx, db).await?,
+                "rsname" => handle_rsname(command, ctx, db).await?,
+                "rsname_remove" => handle_rsname_remove(command, ctx, db).await?,
+                "rsnames" => handle_rsnames(command, ctx, db).await?,
                 _ => {
                     error!("Unknown command: {}", command.data.name);
                 }
@@ -109,117 +135,103 @@ pub async fn handle_interaction(ctx: &Context, interaction: &Interaction, db: &S
         }
         Interaction::Autocomplete(autocomplete) => {
             match autocomplete.data.name.as_str() {
-                // Handle item autocomplete for drop and clog commands
                 "drop" | "clog" => {
-                    if let Some(focused_option) = autocomplete.data.options.iter().find(|opt| opt.name == "item") {
-                        if let Some(partial) = focused_option.value.as_str() {
+                    if let Some(option) = autocomplete.data.options.iter().find(|opt| opt.name == "item" && opt.value.as_str().is_some()) {
+                        if let Some(partial) = option.value.as_str() {
                             let data = ctx.data.read().await;
                             
-                            let suggestions = if autocomplete.data.name == "clog" {
-                                // Get collection log suggestions
-                                let collection_log_manager = data.get::<CollectionLogManagerKey>()
-                                    .ok_or_else(|| anyhow::anyhow!("Collection log manager not found"))?;
-                                collection_log_manager.get_suggestions(partial).await
+                            let suggestions = if autocomplete.data.name == "drop" {
+                                // Get price manager for drop suggestions
+                                if let Some(price_manager) = data.get::<PriceManagerKey>() {
+                                    price_manager.get_item_suggestions(partial).await
+                                } else {
+                                    Vec::new()
+                                }
                             } else {
-                                // Get regular item suggestions for drops
-                                let price_manager = data.get::<PriceManagerKey>()
-                                    .ok_or_else(|| anyhow::anyhow!("Price manager not found"))?;
-                                price_manager.get_item_suggestions(partial).await
+                                // Get collection log manager for clog suggestions
+                                if let Some(clog_manager) = data.get::<CollectionLogManagerKey>() {
+                                    clog_manager.get_suggestions(partial).await
+                                } else {
+                                    Vec::new()
+                                }
                             };
                             
-                            autocomplete
-                                .create_response(&ctx.http, CreateInteractionResponse::Autocomplete(
-                                    CreateAutocompleteResponse::new()
-                                        .set_choices(suggestions.into_iter().map(|name| {
-                                            AutocompleteChoice::new(name.clone(), name)
-                                        }).collect())
-                                ))
-                                .await?;
+                            let choices: Vec<AutocompleteChoice> = suggestions
+                                .into_iter()
+                                .map(|item| AutocompleteChoice::new(item.clone(), item))
+                                .collect();
+                            
+                            autocomplete.create_response(&ctx.http, 
+                                CreateInteractionResponse::Autocomplete(
+                                    CreateAutocompleteResponse::new().set_choices(choices)
+                                )
+                            ).await?;
                         }
                     }
-                },
-                // Handle ID autocomplete for drop_remove and clog_remove commands
-                "drop_remove" => {
-                    if let Some(_focused_option) = autocomplete.data.options.iter().find(|opt| opt.name == "id") {
+                }
+                "drop_remove" | "clog_remove" => {
+                    if let Some(option) = autocomplete.data.options.iter().find(|opt| opt.name == "id") {
                         let discord_id = autocomplete.user.id.to_string();
                         
-                        // Get user's recent drops
-                        let recent_drops = sqlx::query!(
-                            "SELECT id, item_name, value, quantity 
-                             FROM drops 
-                             WHERE discord_id = ? 
-                             ORDER BY timestamp DESC 
-                             LIMIT 25",
-                            discord_id
-                        )
-                        .fetch_all(db)
-                        .await?;
+                        let recent_items = if autocomplete.data.name == "drop_remove" {
+                            // Get recent drops
+                            sqlx::query!(
+                                "SELECT id, item_name, quantity, timestamp FROM drops 
+                                 WHERE discord_id = ? 
+                                 ORDER BY timestamp DESC 
+                                 LIMIT 25",
+                                discord_id
+                            )
+                            .fetch_all(db)
+                            .await?
+                            .into_iter()
+                            .map(|row| {
+                                let timestamp = row.timestamp.unwrap_or_default();
+                                let id = row.id;
+                                let name = row.item_name.clone();
+                                let quantity = if row.quantity > 0 { row.quantity } else { 1i64 };
+                                let display = if quantity > 1 {
+                                    format!("#{}: {}x {} ({})", id, quantity, name, timestamp)
+                                } else {
+                                    format!("#{}: {} ({})", id, name, timestamp)
+                                };
+                                AutocompleteChoice::new(display, id)
+                            })
+                            .collect()
+                        } else {
+                            // Get recent clog entries
+                            sqlx::query!(
+                                "SELECT id, item_name, timestamp FROM collection_log_entries 
+                                 WHERE discord_id = ? 
+                                 ORDER BY timestamp DESC 
+                                 LIMIT 25",
+                                discord_id
+                            )
+                            .fetch_all(db)
+                            .await?
+                            .into_iter()
+                            .map(|row| {
+                                let timestamp = row.timestamp.unwrap_or_default();
+                                let id = row.id;
+                                let name = row.item_name.clone();
+                                AutocompleteChoice::new(format!("#{}: {} ({})", id, name, timestamp), id)
+                            })
+                            .collect()
+                        };
                         
-                        // Create suggestions in the format "ID: item_name (quantity x value)"
-                        let suggestions: Vec<(String, i64)> = recent_drops.iter().map(|drop| {
-                            let id = drop.id;
-                            let label = format!(
-                                "{}x {} ({})", 
-                                drop.quantity, 
-                                drop.item_name,
-                                format_gp(drop.value)
-                            );
-                            (label, id)
-                        }).collect();
-                        
-                        autocomplete
-                            .create_response(&ctx.http, CreateInteractionResponse::Autocomplete(
-                                CreateAutocompleteResponse::new()
-                                    .set_choices(suggestions.into_iter().map(|(label, id)| {
-                                        AutocompleteChoice::new(label, id)
-                                    }).collect())
-                            ))
-                            .await?;
+                        autocomplete.create_response(&ctx.http, 
+                            CreateInteractionResponse::Autocomplete(
+                                CreateAutocompleteResponse::new().set_choices(recent_items)
+                            )
+                        ).await?;
                     }
-                },
-                "clog_remove" => {
-                    if let Some(_focused_option) = autocomplete.data.options.iter().find(|opt| opt.name == "id") {
-                        let discord_id = autocomplete.user.id.to_string();
-                        
-                        // Get user's recent collection log entries
-                        let recent_entries = sqlx::query!(
-                            "SELECT id, item_name, points
-                             FROM collection_log_entries 
-                             WHERE discord_id = ? 
-                             ORDER BY timestamp DESC 
-                             LIMIT 25",
-                            discord_id
-                        )
-                        .fetch_all(db)
-                        .await?;
-                        
-                        // Create suggestions in the format "ID: item_name (points pts)"
-                        let suggestions: Vec<(String, i64)> = recent_entries.iter().map(|entry| {
-                            let id = entry.id;
-                            let label = format!(
-                                "{} ({} pts)", 
-                                entry.item_name, 
-                                entry.points
-                            );
-                            (label, id)
-                        }).collect();
-                        
-                        autocomplete
-                            .create_response(&ctx.http, CreateInteractionResponse::Autocomplete(
-                                CreateAutocompleteResponse::new()
-                                    .set_choices(suggestions.into_iter().map(|(label, id)| {
-                                        AutocompleteChoice::new(label, id)
-                                    }).collect())
-                            ))
-                            .await?;
-                    }
-                },
+                }
                 _ => {}
             }
         }
         _ => {}
     }
-
+    
     Ok(())
 }
 

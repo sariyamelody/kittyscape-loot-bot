@@ -5,6 +5,7 @@ use serenity::prelude::TypeMapKey;
 pub struct Config {
     pub mod_channel_id: ChannelId,
     pub log_channel_id: ChannelId,
+    pub runelite_channel_id: Option<ChannelId>,
 }
 
 impl Config {
@@ -18,10 +19,20 @@ impl Config {
             Ok(id) => id.parse::<u64>().unwrap_or(mod_channel_id),
             Err(_) => mod_channel_id
         };
+        
+        // Optional RuneLite channel ID
+        let runelite_channel_id = match env::var("RUNELITE_CHANNEL_ID") {
+            Ok(id) => match id.parse::<u64>() {
+                Ok(id) => Some(ChannelId::new(id)),
+                Err(_) => None
+            },
+            Err(_) => None
+        };
 
         Ok(Self {
             mod_channel_id: ChannelId::new(mod_channel_id),
             log_channel_id: ChannelId::new(log_channel_id),
+            runelite_channel_id,
         })
     }
 }

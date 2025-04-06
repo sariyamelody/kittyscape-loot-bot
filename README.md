@@ -23,10 +23,20 @@ A Discord bot for tracking Old School RuneScape drops and collection log entries
    DISCORD_TOKEN=your_discord_bot_token_here
    DATABASE_URL=sqlite:kittyscape.db
    MOD_CHANNEL_ID=your_mod_channel_id_here
+   RUNELITE_CHANNEL_ID=your_runelite_channel_id_here
+   BOT_LOG_CHANNEL_ID=your_log_channel_id_here
    ```
-5. Make sure the bot has "View Channel" and "Send Messages" permissions in the channel specified by MOD_CHANNEL_ID
+5. Make sure the bot has "View Channel" and "Send Messages" permissions in the channels specified by MOD_CHANNEL_ID, RUNELITE_CHANNEL_ID, and BOT_LOG_CHANNEL_ID
 6. Run migrations: `sqlx database setup`
 7. Start the bot: `cargo run`
+
+### Environment Variables
+
+- `DISCORD_TOKEN`: Your Discord bot token (required)
+- `DATABASE_URL`: SQLite database path (required)
+- `MOD_CHANNEL_ID`: Channel for moderation notifications (required)
+- `RUNELITE_CHANNEL_ID`: Channel where RuneLite plugin messages are posted (optional, but required for automatic tracking)
+- `BOT_LOG_CHANNEL_ID`: Channel where drop/clog add commands are logged for monitoring (optional)
 
 ## Commands
 
@@ -34,6 +44,37 @@ A Discord bot for tracking Old School RuneScape drops and collection log entries
 - `/clog <item>` - Record a collection log entry
 - `/stats` - View your stats and rank progress
 - `/leaderboard` - View top players
+
+## Automatic RuneLite Integration
+
+This bot includes functionality to automatically track RuneScape drops and collection log entries from the RuneLite Discord plugin. Players can link their RuneScape usernames to their Discord accounts, and the bot will automatically add drops and collection log entries when detected in a specified channel.
+
+### Setup
+
+1. Set the `RUNELITE_CHANNEL_ID` environment variable to the ID of the Discord channel where RuneLite plugin messages are posted
+2. Users need to link their RuneScape accounts with `/rsname username:RSName`
+
+### Commands
+
+- `/rsname <username>` - Link a RuneScape username to your Discord account
+- `/rsname_remove <username>` - Unlink a RuneScape username from your Discord account  
+- `/rsnames` - List all RuneScape accounts linked to your Discord account
+
+### Development Utilities
+
+The repo includes several utilities for development:
+
+- `scripts/analyze-runelite.sh` - Analyze messages in the RuneLite channel to help with format detection
+  ```
+  ./scripts/analyze-runelite.sh --channel-id YOUR_CHANNEL_ID --limit 50
+  ```
+
+- `cargo run --bin migrate` - Run database migrations without starting the bot
+- `cargo run --bin analyze_runelite` - Analyze RuneLite messages (using RUNELITE_CHANNEL_ID env var)
+
+The RuneLite integration works with these plugins:
+- [Discord Rare Drop Notificater](https://runelite.net/plugin-hub/show/discord-rare-drop-notificater)
+- [Discord Collection Logger](https://runelite.net/plugin-hub/show/discord-collection-logger)
 
 ## Development
 

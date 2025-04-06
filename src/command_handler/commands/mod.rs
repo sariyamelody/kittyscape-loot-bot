@@ -5,6 +5,9 @@ pub mod leaderboard;
 pub mod stats;
 pub mod drop_remove;
 pub mod clog_remove;
+pub mod rsname;
+pub mod rsname_remove;
+pub mod rsnames;
 
 pub use drop::handle_drop;
 pub use clog::handle_clog;
@@ -12,4 +15,7 @@ pub use points::handle_points;
 pub use leaderboard::handle_leaderboard;
 pub use stats::handle_stats;
 pub use drop_remove::handle_drop_remove;
-pub use clog_remove::handle_clog_remove; 
+pub use clog_remove::handle_clog_remove;
+pub use rsname::handle_rsname;
+pub use rsname_remove::handle_rsname_remove;
+pub use rsnames::handle_rsnames; 

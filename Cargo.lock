@@ -1164,6 +1164,8 @@ dependencies = [
  "chrono",
  "dotenvy",
  "html-escape",
+ "lazy_static",
+ "regex",
  "reqwest",
  "scraper",
  "serde",
