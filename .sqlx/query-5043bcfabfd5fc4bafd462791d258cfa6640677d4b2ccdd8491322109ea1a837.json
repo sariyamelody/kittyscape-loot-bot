@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO collection_log_entries (discord_id, item_name) VALUES (?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "5043bcfabfd5fc4bafd462791d258cfa6640677d4b2ccdd8491322109ea1a837"
+}

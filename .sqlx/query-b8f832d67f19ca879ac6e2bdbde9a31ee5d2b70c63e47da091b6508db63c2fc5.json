@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT points, role_name FROM rank_thresholds \n             WHERE points > ? AND points <= ?\n             ORDER BY points DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "points",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "role_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b8f832d67f19ca879ac6e2bdbde9a31ee5d2b70c63e47da091b6508db63c2fc5"
+}

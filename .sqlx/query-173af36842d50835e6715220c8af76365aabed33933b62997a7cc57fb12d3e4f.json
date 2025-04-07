@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO runescape_accounts (discord_id, runescape_name) \n         VALUES (?, ?)\n         ON CONFLICT(discord_id, runescape_name) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "173af36842d50835e6715220c8af76365aabed33933b62997a7cc57fb12d3e4f"
+}

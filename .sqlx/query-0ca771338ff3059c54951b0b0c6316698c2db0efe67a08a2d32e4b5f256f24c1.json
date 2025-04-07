@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT runescape_name, timestamp FROM runescape_accounts \n         WHERE discord_id = ? \n         ORDER BY timestamp DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "runescape_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "timestamp",
+        "ordinal": 1,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "0ca771338ff3059c54951b0b0c6316698c2db0efe67a08a2d32e4b5f256f24c1"
+}

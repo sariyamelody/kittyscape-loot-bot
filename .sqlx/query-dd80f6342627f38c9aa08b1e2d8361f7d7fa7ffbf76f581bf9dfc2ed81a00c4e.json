@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item_name, points \n                 FROM collection_log_entries \n                 WHERE discord_id = ? \n                 ORDER BY points DESC \n                 LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "points",
+        "ordinal": 1,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "dd80f6342627f38c9aa08b1e2d8361f7d7fa7ffbf76f581bf9dfc2ed81a00c4e"
+}

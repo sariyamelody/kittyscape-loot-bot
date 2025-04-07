@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT AVG(CAST(value AS FLOAT)) as avg_value \n                 FROM drops \n                 WHERE discord_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "avg_value",
+        "ordinal": 0,
+        "type_info": "Float"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "8925d4ea45ae7a6e4bac438db4450a601e6ba540dd579fc4bdb64278588f7d6e"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, item_name, points, timestamp \n         FROM collection_log_entries \n         WHERE discord_id = ? \n         ORDER BY timestamp DESC \n         LIMIT 10",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "item_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "points",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "timestamp",
+        "ordinal": 3,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "87c5c93093c7156c059e7fd0e0d159412b939fcc2b8661cfdfd5c68da9c385e0"
+}

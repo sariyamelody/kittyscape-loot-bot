@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT AVG(CAST(points AS FLOAT)) as avg_points \n                 FROM collection_log_entries \n                 WHERE discord_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "avg_points",
+        "ordinal": 0,
+        "type_info": "Float"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "d4a669759b8262d2dcaa02de1ba63d9f7d8b3a0ade6abffeb8e44e1efab19487"
+}

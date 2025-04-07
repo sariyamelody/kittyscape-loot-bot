@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM runescape_accounts \n         WHERE discord_id = ? AND runescape_name = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "37d00756b936cb608dd717a98fb12fc83deb5089babba37f7bf354f0848223a8"
+}

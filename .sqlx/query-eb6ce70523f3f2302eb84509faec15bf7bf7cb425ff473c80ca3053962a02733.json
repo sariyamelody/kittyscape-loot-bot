@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "WITH user_clogs AS (\n            SELECT discord_id, COUNT(*) as count\n            FROM collection_log_entries\n            GROUP BY discord_id\n        )\n        SELECT u.discord_id, u.points, u.total_drops, COALESCE(c.count, 0) as clog_count\n        FROM users u\n        LEFT JOIN user_clogs c ON u.discord_id = c.discord_id\n        ORDER BY u.points DESC\n        LIMIT 10",
+  "describe": {
+    "columns": [
+      {
+        "name": "discord_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "points",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "total_drops",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "clog_count",
+        "ordinal": 3,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "eb6ce70523f3f2302eb84509faec15bf7bf7cb425ff473c80ca3053962a02733"
+}

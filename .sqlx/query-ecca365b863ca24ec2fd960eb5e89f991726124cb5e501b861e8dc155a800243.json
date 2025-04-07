@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT runescape_name FROM runescape_accounts WHERE discord_id = ? LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "runescape_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ecca365b863ca24ec2fd960eb5e89f991726124cb5e501b861e8dc155a800243"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item_name, quantity, value, timestamp \n                 FROM drops \n                 WHERE discord_id = ? \n                 ORDER BY timestamp DESC \n                 LIMIT 5",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "quantity",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "value",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "timestamp",
+        "ordinal": 3,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "076c579c2825251846c4893e380f7251b3daa01dbe9b74e6dae72a2f9157dde7"
+}

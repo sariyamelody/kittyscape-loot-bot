@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO users (discord_id, points, total_drops) \n         VALUES (?, 0, 0)\n         ON CONFLICT(discord_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "c9382f300daa771b25d1dcc5b92fd4e7b3e8c5c4b1a3551e71d1e53c24ba310c"
+}

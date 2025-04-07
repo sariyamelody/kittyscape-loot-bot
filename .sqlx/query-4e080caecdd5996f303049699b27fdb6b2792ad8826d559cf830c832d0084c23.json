@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT timestamp FROM collection_log_entries \n         WHERE discord_id = ? AND item_name = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "timestamp",
+        "ordinal": 0,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "4e080caecdd5996f303049699b27fdb6b2792ad8826d559cf830c832d0084c23"
+}

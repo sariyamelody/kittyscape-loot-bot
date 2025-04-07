@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users \n                 SET total_drops = total_drops + ?\n                 WHERE discord_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "8743f901229797d38f513fc7b71a7c916b4b9738f3d0275e9bdf09fa5ac74ae6"
+}

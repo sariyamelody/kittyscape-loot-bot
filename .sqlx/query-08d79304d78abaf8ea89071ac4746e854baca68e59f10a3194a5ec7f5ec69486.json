@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT points FROM users WHERE discord_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "points",
+        "ordinal": 0,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "08d79304d78abaf8ea89071ac4746e854baca68e59f10a3194a5ec7f5ec69486"
+}
