@@ -314,9 +314,10 @@ impl RunescapeTracker {
 
             // Record the collection log entry
             sqlx::query!(
-                "INSERT INTO collection_log_entries (discord_id, item_name) VALUES (?, ?)",
+                "INSERT INTO collection_log_entries (discord_id, item_name, points) VALUES (?, ?, ?)",
                 discord_id,
-                item_name
+                item_name,
+                points
             )
             .execute(db)
             .await?;
@@ -359,7 +360,7 @@ impl RunescapeTracker {
         debug!("Looking up Discord IDs for RS name: {}", rs_name);
         
         let records = sqlx::query!(
-            "SELECT discord_id FROM runescape_accounts WHERE runescape_name = ?",
+            "SELECT discord_id FROM runescape_accounts WHERE runescape_name = ? COLLATE NOCASE",
             rs_name
         )
         .fetch_all(db)
