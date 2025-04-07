@@ -196,28 +196,3 @@ pub async fn add_points(
         crossed_ranks,
     })
 }
-
-pub async fn get_rank_progress(
-    discord_id: &str,
-    db: &SqlitePool,
-) -> Result<Option<(i64, String)>> {
-    let user_points = sqlx::query!(
-        "SELECT points FROM users WHERE discord_id = ?",
-        discord_id
-    )
-    .fetch_one(db)
-    .await?;
-
-    // Get the next rank threshold
-    let next_rank = sqlx::query!(
-        "SELECT points, role_name FROM rank_thresholds 
-         WHERE points > ? 
-         ORDER BY points ASC 
-         LIMIT 1",
-        user_points.points
-    )
-    .fetch_optional(db)
-    .await?;
-
-    Ok(next_rank.map(|rank| (rank.points, rank.role_name)))
-} 

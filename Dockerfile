@@ -39,8 +39,5 @@ RUN apt-get update && \
 COPY --from=builder /usr/src/app/target/release/kittyscape-loot-bot /app/
 COPY --from=builder /usr/src/app/migrations/ /app/migrations/
 
-# Set environment variables
-ENV DATABASE_URL=sqlite:/app/kittyscape.db
-
 # Set up the entrypoint
 CMD ["/app/kittyscape-loot-bot"] 
