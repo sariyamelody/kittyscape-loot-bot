@@ -37,23 +37,6 @@ This will:
 3. Use the environment variables from your `.env` file
 4. Store the database inside the container at `/app/kittyscape.db`
 
-## Verifying Docker Build Cache Reuse
-
-The Dockerfile uses `cargo-chef` to cache Rust dependencies separately from app code.
-
-To verify caching is working:
-
-1. Run an initial build (this compiles dependencies):
-   ```
-   docker build --progress=plain -t kittyscape-bot .
-   ```
-2. Make a small source-only change (for example add a temporary comment in a file under `src/`).
-3. Build again:
-   ```
-   docker build --progress=plain -t kittyscape-bot .
-   ```
-4. In the second build output, confirm the `cargo chef cook --release --recipe-path recipe.json` step is reused from cache (`CACHED`) and only final app compile steps rerun.
-
 ## Viewing Logs
 
 To see the bot's logs:
