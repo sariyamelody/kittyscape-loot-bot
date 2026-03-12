@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE collection_log_items SET whitelist=? WHERE item_name=?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "475accd1a2b712aeef2939311ebd1734733b09be131a117876d737387b9e062f"
+}

@@ -379,7 +379,7 @@ impl RunescapeTracker {
         Ok(discord_ids)
     }
     
-    async fn get_username_from_discord_id(&self, ctx: &Context, discord_id: &str) -> Result<String> {
+    pub async fn get_username_from_discord_id(&self, ctx: &Context, discord_id: &str) -> Result<String> {
         let user_id = discord_id.parse::<u64>()
             .map_err(|_| anyhow::anyhow!("Invalid Discord ID"))?;
         

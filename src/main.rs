@@ -103,7 +103,7 @@ async fn main() -> Result<()> {
 
     // Initialize managers
     let price_manager = Arc::new(prices::PriceManager::new().await?);
-    let collection_log_manager = Arc::new(collection_log::CollectionLogManager::new().await?);
+    let collection_log_manager = Arc::new(collection_log::CollectionLogManager::new(&db).await?);
     let runescape_tracker = Arc::new(runescape_tracker::RunescapeTracker::new().await?);
 
     // Create a new instance of the client

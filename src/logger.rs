@@ -40,3 +40,25 @@ pub async fn log_action(
     
     Ok(())
 } 
+//Log other messages that might not follow the normal formatting
+pub async fn log_generic(
+    ctx: &Context,
+    details: &str,
+) -> Result<()> {
+    let data = ctx.data.read().await;
+    if let Some(config) = data.get::<ConfigKey>() {
+
+        // Format log message
+        let log_message = format!(
+            "**[{}]** {}",
+            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
+            details
+        );
+
+        // Send to log channel
+        if let Err(why) = config.log_channel_id.say(&ctx.http, log_message).await {
+            tracing::error!("Failed to send log message: {:?}", why);
+        }
+    }
+    Ok(())
+}

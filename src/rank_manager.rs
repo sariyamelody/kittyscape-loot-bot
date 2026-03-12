@@ -1,5 +1,7 @@
 use anyhow::Result;
 use serenity::prelude::*;
+use serenity::model::prelude::*;
+use serenity::utils::MessageBuilder;
 use sqlx::SqlitePool;
 use crate::config::ConfigKey;
 use crate::command_handler::format_points;
@@ -92,22 +94,39 @@ pub async fn add_points(
                 // Create notification with all crossed ranks
                 let notification = if ranks_crossed.len() == 1 {
                     format!(
-                        "🎉 **Rank Up Alert!**\n{} has reached {} points and is ready for the {} role!",
+                        "🎉 **Rank Up Alert!**\n{} has reached {} and is ready for the {} role!",
                         user_name,
                         format_points(new_points),
                         ranks_text
                     )
                 } else {
                     format!(
-                        "🎉 **Multiple Rank Up Alert!**\n{} has reached {} points and is ready for the following roles: {}!",
+                        "🎉 **Multiple Rank Up Alert!**\n{} has reached {} and is ready for the following roles: {}!",
                         user_name,
                         format_points(new_points),
                         ranks_text
                     )
                 };
 
+                let mut rank_up_message = MessageBuilder::new();
+
+                rank_up_message.push(notification);
+
+                let discord_user_id = UserId::new(discord_id.parse().unwrap());
+
+                if let Some(rank_request_channel_id) = config.rank_request_channel_id {
+                    //If rank request channel exists and we hit the threshold rank this level up
+                    if ranks_text.contains("Meowster") { //This should technically be a configurable variable but that can come later
+                        rank_up_message.push("\n")
+                        .mention(&discord_user_id)
+                        .push(", you may now select any rank icon you want in ")
+                        .mention(&rank_request_channel_id)
+                        .push("!");
+                    }
+                };
+
                 if let Err(why) = config.mod_channel_id
-                    .say(&ctx.http, notification)
+                    .say(&ctx.http, rank_up_message.build())
                     .await
                 {
                     tracing::error!("Failed to send rank up notification: {:?}", why);
@@ -153,14 +172,14 @@ pub async fn add_points(
                 // Create notification about lost ranks
                 let notification = if ranks_lost.len() == 1 {
                     format!(
-                        "⬇️ **Rank Down Alert!**\n{} is now at {} points and has lost the {} role.",
+                        "⬇️ **Rank Down Alert!**\n{} is now at {} and has lost the {} role.",
                         user_name,
                         format_points(new_points),
                         ranks_text
                     )
                 } else {
                     format!(
-                        "⬇️ **Multiple Rank Down Alert!**\n{} is now at {} points and has lost the following roles: {}.",
+                        "⬇️ **Multiple Rank Down Alert!**\n{} is now at {} and has lost the following roles: {}.",
                         user_name,
                         format_points(new_points),
                         ranks_text
@@ -195,4 +214,128 @@ pub async fn add_points(
         next_rank,
         crossed_ranks,
     })
+}
+
+pub async fn notify_rank_transition(
+    ctx: &Context,
+    discord_id: &str,
+    user_name: &str,
+    old_points: i64,
+    new_points: i64,
+    db: &SqlitePool,
+) -> Result<()> {
+    if new_points > old_points {
+        let ranks_crossed = sqlx::query_as::<_, (i64, String)>(
+            "SELECT points, role_name FROM rank_thresholds
+             WHERE points > ? AND points <= ?
+             ORDER BY points ASC"
+        )
+        .bind(old_points)
+        .bind(new_points)
+        .fetch_all(db)
+        .await?;
+
+        if !ranks_crossed.is_empty() {
+            let data = ctx.data.read().await;
+            if let Some(config) = data.get::<ConfigKey>() {
+                let ranks_text = if ranks_crossed.len() == 1 {
+                    ranks_crossed[0].1.clone()
+                } else {
+                    let ranks: Vec<_> = ranks_crossed.iter().map(|r| r.1.as_str()).collect();
+                    match ranks.len() {
+                        2 => format!("{} and {}", ranks[0], ranks[1]),
+                        _ => {
+                            let (last, rest) = ranks.split_last().unwrap();
+                            format!("{}, and {}", rest.join(", "), last)
+                        }
+                    }
+                };
+
+                let notification = if ranks_crossed.len() == 1 {
+                    format!(
+                        "🎉 **Rank Up Alert!**\n{} has reached {} and is ready for the {} role!",
+                        user_name,
+                        format_points(new_points),
+                        ranks_text
+                    )
+                } else {
+                    format!(
+                        "🎉 **Multiple Rank Up Alert!**\n{} has reached {} and is ready for the following roles: {}!",
+                        user_name,
+                        format_points(new_points),
+                        ranks_text
+                    )
+                };
+
+                let mut rank_up_message = MessageBuilder::new();
+                rank_up_message.push(notification);
+
+                let discord_user_id = UserId::new(discord_id.parse().unwrap());
+                if let Some(rank_request_channel_id) = config.rank_request_channel_id {
+                    if ranks_text.contains("Meowster") {
+                        rank_up_message
+                            .push("\n")
+                            .mention(&discord_user_id)
+                            .push(", you may now select any rank icon you want in ")
+                            .mention(&rank_request_channel_id)
+                            .push("!");
+                    }
+                };
+
+                if let Err(why) = config.mod_channel_id.say(&ctx.http, rank_up_message.build()).await {
+                    tracing::error!("Failed to send rank up notification: {:?}", why);
+                }
+            }
+        }
+    } else if new_points < old_points {
+        let ranks_lost = sqlx::query_as::<_, (i64, String)>(
+            "SELECT points, role_name FROM rank_thresholds
+             WHERE points > ? AND points <= ?
+             ORDER BY points DESC"
+        )
+        .bind(new_points)
+        .bind(old_points)
+        .fetch_all(db)
+        .await?;
+
+        if !ranks_lost.is_empty() {
+            let data = ctx.data.read().await;
+            if let Some(config) = data.get::<ConfigKey>() {
+                let ranks_text = if ranks_lost.len() == 1 {
+                    ranks_lost[0].1.clone()
+                } else {
+                    let ranks: Vec<_> = ranks_lost.iter().map(|r| r.1.as_str()).collect();
+                    match ranks.len() {
+                        2 => format!("{} and {}", ranks[0], ranks[1]),
+                        _ => {
+                            let (last, rest) = ranks.split_last().unwrap();
+                            format!("{}, and {}", rest.join(", "), last)
+                        }
+                    }
+                };
+
+                let notification = if ranks_lost.len() == 1 {
+                    format!(
+                        "⬇️ **Rank Down Alert!**\n{} is now at {} and has lost the {} role.",
+                        user_name,
+                        format_points(new_points),
+                        ranks_text
+                    )
+                } else {
+                    format!(
+                        "⬇️ **Multiple Rank Down Alert!**\n{} is now at {} and has lost the following roles: {}.",
+                        user_name,
+                        format_points(new_points),
+                        ranks_text
+                    )
+                };
+
+                if let Err(why) = config.mod_channel_id.say(&ctx.http, notification).await {
+                    tracing::error!("Failed to send rank down notification: {:?}", why);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

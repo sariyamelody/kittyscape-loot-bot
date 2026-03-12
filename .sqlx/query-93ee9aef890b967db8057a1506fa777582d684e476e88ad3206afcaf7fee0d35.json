@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM v_item_data WHERE item_name LIKE '%' || ? || '%' ORDER BY item_id",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "item_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "preferred_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "categories",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "percentage",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "highest_points",
+        "ordinal": 5,
+        "type_info": "Int64"
+      },
+      {
+        "name": "whitelist",
+        "ordinal": 6,
+        "type_info": "Int64"
+      },
+      {
+        "name": "clog_count",
+        "ordinal": 7,
+        "type_info": "Int64"
+      },
+      {
+        "name": "clamp",
+        "ordinal": 8,
+        "type_info": "Int"
+      },
+      {
+        "name": "clamped_category",
+        "ordinal": 9,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "93ee9aef890b967db8057a1506fa777582d684e476e88ad3206afcaf7fee0d35"
+}

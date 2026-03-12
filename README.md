@@ -25,6 +25,7 @@ A Discord bot for tracking Old School RuneScape drops and collection log entries
    MOD_CHANNEL_ID=your_mod_channel_id_here
    RUNELITE_CHANNEL_ID=your_runelite_channel_id_here
    BOT_LOG_CHANNEL_ID=your_log_channel_id_here
+   RANK_REQUEST_CHANNEL_ID=your_rank_channel_id_here
    ```
 5. Make sure the bot has "View Channel" and "Send Messages" permissions in the channels specified by MOD_CHANNEL_ID, RUNELITE_CHANNEL_ID, and BOT_LOG_CHANNEL_ID
 6. Run migrations: `sqlx database setup`

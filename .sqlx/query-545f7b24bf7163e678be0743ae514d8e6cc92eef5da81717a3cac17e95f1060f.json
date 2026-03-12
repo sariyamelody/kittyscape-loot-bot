@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO category_table (category) SELECT category FROM v_categories_clogs GROUP BY category ON CONFLICT(category_table.category) DO NOTHING;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "545f7b24bf7163e678be0743ae514d8e6cc92eef5da81717a3cac17e95f1060f"
+}

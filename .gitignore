@@ -19,3 +19,4 @@ target/
 .env
 *.db
 *.db-*
+kittyscape.sqbpro

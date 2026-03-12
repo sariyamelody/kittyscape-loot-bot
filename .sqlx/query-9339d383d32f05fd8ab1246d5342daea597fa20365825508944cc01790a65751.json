@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item_id, item_name, preferred_name, categories, percentage, highest_points as 'highest_points!: i64', whitelist, clog_count, clamp, clamped_category from v_item_data\n        WHERE clog_count > 0 AND ((clamp = 1 AND highest_points > 3000)\n        OR whitelist = 1 OR percentage < 10)\n        GROUP BY item_name ORDER BY percentage",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "item_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "preferred_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "categories",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "percentage",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "highest_points!: i64",
+        "ordinal": 5,
+        "type_info": "Int"
+      },
+      {
+        "name": "whitelist",
+        "ordinal": 6,
+        "type_info": "Int64"
+      },
+      {
+        "name": "clog_count",
+        "ordinal": 7,
+        "type_info": "Int"
+      },
+      {
+        "name": "clamp",
+        "ordinal": 8,
+        "type_info": "Int"
+      },
+      {
+        "name": "clamped_category",
+        "ordinal": 9,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9339d383d32f05fd8ab1246d5342daea597fa20365825508944cc01790a65751"
+}

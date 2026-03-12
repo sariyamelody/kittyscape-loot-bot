@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item_id, item_name FROM collection_log_items WHERE item_name = ? GROUP BY item_name ORDER BY percentage",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "item_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "c4341948571de858640edf9a45ff49fca1bdeb3bded3b5d6468c067529a762aa"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item_name, percentage FROM collection_log_items",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "percentage",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "cc75692d9a8b3489076e60679496a8b554117818372cbf656e2401ce2b0e6d57"
+}

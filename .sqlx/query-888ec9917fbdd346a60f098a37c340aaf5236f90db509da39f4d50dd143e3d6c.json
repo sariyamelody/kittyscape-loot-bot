@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE category_table SET clamp=? WHERE category=?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "888ec9917fbdd346a60f098a37c340aaf5236f90db509da39f4d50dd143e3d6c"
+}

@@ -65,12 +65,17 @@ pub async fn handle_clog(
         .execute(db)
         .await?;
 
+        let item_record = sqlx::query!("SELECT item_id, item_name FROM collection_log_items WHERE item_name = ? GROUP BY item_name ORDER BY percentage", item_name)
+        .fetch_one(db)
+        .await?;
+
         // Record the collection log entry
         sqlx::query!(
-            "INSERT INTO collection_log_entries (discord_id, item_name, points) VALUES (?, ?, ?)",
+            "INSERT INTO collection_log_entries (discord_id, item_name, points, item_id) VALUES (?, ?, ?, ?)",
             discord_id,
             item_name,
-            points
+            points,
+            item_record.item_id,
         )
         .execute(db)
         .await?;

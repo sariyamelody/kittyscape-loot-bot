@@ -120,7 +120,7 @@ impl PriceManager {
                 if let Err(e) = self.update_prices().await {
                     error!("Failed to update prices: {}", e);
                 }
-                tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+                tokio::time::sleep(tokio::time::Duration::from_secs(600)).await;
             }
         });
     }
