@@ -148,11 +148,11 @@ impl CollectionLogManager<> {
             for (i, row) in rows.iter().enumerate() {
                 debug!("Processing row {}", i);
 
-                info!("{:#?}", row.value());
+                debug!("{:#?}", row.value());
                 let item_id = row.value().attr("data-item-id").unwrap().parse::<f64>().unwrap();
                 
                 // Log the raw HTML of the row for debugging
-                info!("Row HTML: {}", row.html());
+                debug!("Row HTML: {}", row.html());
                 
                 let cells: Vec<_> = row.select(&scraper::Selector::parse("td").unwrap()).collect();
                 debug!("Found {} cells in row", cells.len());
