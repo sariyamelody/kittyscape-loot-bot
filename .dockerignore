@@ -1,0 +1,17 @@
+target/
+.git/
+.gitignore
+.cursor/
+.vscode/
+.idea/
+
+*.log
+*.tmp
+*.sqlite
+*.db
+
+.env
+.env.*
+
+agent-transcripts/
+terminals/

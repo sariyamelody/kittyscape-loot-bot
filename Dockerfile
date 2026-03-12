@@ -1,43 +1,43 @@
-# Build stage
-FROM rust:1.86-slim-bullseye as builder
+# syntax=docker/dockerfile:1.7
+
+# Base image shared by planner and builder
+FROM rust:1.86-slim-bullseye AS base
 
 WORKDIR /usr/src/app
 
-# Install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libssl-dev pkg-config libsqlite3-dev ca-certificates && \
+    pkg-config libssl-dev libsqlite3-dev ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Install sqlx-cli for migrations
-RUN cargo install sqlx-cli --no-default-features --features native-tls,sqlite
+RUN cargo install cargo-chef --locked
 
-# Copy over manifests and lock files
-COPY Cargo.toml Cargo.lock ./
+# Planner stage: build dependency recipe
+FROM base AS planner
 
-# Copy source code
-COPY src/ ./src/
-COPY .sqlx/ ./.sqlx/
-COPY migrations/ ./migrations/
-COPY scripts/ ./scripts/
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Build the application
-RUN cargo build --release
+# Builder stage: cache dependencies, then compile app
+FROM base AS builder
+
+COPY --from=planner /usr/src/app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+COPY . .
+RUN cargo build --release --bin kittyscape-loot-bot
 
 # Runtime stage
-FROM debian:bullseye-slim
+FROM debian:bullseye-slim AS runtime
 
 WORKDIR /app
 
-# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libssl1.1 libsqlite3-0 ca-certificates strace && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy the built binary
-COPY --from=builder /usr/src/app/target/release/kittyscape-loot-bot /app/
+COPY --from=builder /usr/src/app/target/release/kittyscape-loot-bot /app/kittyscape-loot-bot
 COPY --from=builder /usr/src/app/migrations/ /app/migrations/
 
-# Set up the entrypoint
-CMD ["/app/kittyscape-loot-bot"] 
+CMD ["/app/kittyscape-loot-bot"]
