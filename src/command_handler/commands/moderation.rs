@@ -13,7 +13,7 @@ use crate::command_handler::CollectionLogManagerKey;
 use crate::rank_manager;
 use crate::logger;
 use crate::runescape_tracker::RunescapeTrackerKey;
-use sqlx::{QueryBuilder, Sqlite};
+use sqlx::{QueryBuilder, Row, Sqlite};
 
 pub struct ItemData {
     item_id: i64,
@@ -104,13 +104,8 @@ pub async fn handle_recalculate( //Big red button
 
         if clog_records.len() > 0 {
 
-            let mut clog_update_query: QueryBuilder<Sqlite> = QueryBuilder::new(
-                "",
-            );
-
-            let mut clog_update_query_separated = clog_update_query.separated(";\n");
-
-            let mut affected_players = HashMap::new();
+            let mut affected_player_deltas: HashMap<String, i64> = HashMap::new();
+            let mut pending_clog_updates: Vec<(i64, i64)> = Vec::new(); // (entry_id, new_points)
 
             
 
@@ -127,27 +122,91 @@ pub async fn handle_recalculate( //Big red button
 
                     tracing::info!("User {} point change from {}: {}", discord_id, item_vector[target_item].item_name, point_delta);
 
-                    if !affected_players.contains_key(&discord_id) { //Initialize
-                        let rs_name = rs_manager.get_username_from_discord_id(ctx, discord_id.as_str()).await?;
-                        affected_players.insert(discord_id.clone(), PlayerStats {
-                            change: 0,
-                            name: rs_name,
-                        });
-                    }
+                    affected_player_deltas
+                        .entry(discord_id.clone())
+                        .and_modify(|player_delta| *player_delta += point_delta)
+                        .or_insert(point_delta);
 
-                    affected_players.entry(discord_id).and_modify(|player_stat| player_stat.change += point_delta);
-
-                    clog_update_query_separated.push(format!("UPDATE collection_log_entries SET points={} WHERE id={}", item_vector[target_item].points, row.id));
+                    pending_clog_updates.push((row.id, item_vector[target_item].points));
 
                     item_vector[target_item].affected += 1;
                 }
                 
             }
-            clog_update_query_separated.push_unseparated("");
 
             tracing::info!("Total edited record count: {}", running_count);
 
             if running_count > 0 {
+                let mut tx = db.begin().await?;
+
+                for (entry_id, new_points) in &pending_clog_updates {
+                    sqlx::query("UPDATE collection_log_entries SET points = ? WHERE id = ?")
+                        .bind(*new_points)
+                        .bind(*entry_id)
+                        .execute(&mut *tx)
+                        .await?;
+                }
+
+                for (discord_id, point_delta) in &affected_player_deltas {
+                    // Ensure user row exists before applying the delta.
+                    sqlx::query(
+                        "INSERT INTO users (discord_id, points, total_drops) VALUES (?, 0, 0)
+                         ON CONFLICT(discord_id) DO NOTHING",
+                    )
+                    .bind(discord_id)
+                    .execute(&mut *tx)
+                    .await?;
+
+                    sqlx::query("UPDATE users SET points = points + ? WHERE discord_id = ?")
+                        .bind(*point_delta)
+                        .bind(discord_id)
+                        .execute(&mut *tx)
+                        .await?;
+                }
+
+                tx.commit().await?;
+
+                // Post-commit lookups keep the transaction short and avoid external/API latency in tx.
+                let mut affected_players = HashMap::new();
+                for (discord_id, point_delta) in affected_player_deltas.into_iter() {
+                    let rs_name = rs_manager
+                        .get_username_from_discord_id(ctx, discord_id.as_str())
+                        .await
+                        .unwrap_or_else(|_| "Unknown user".to_string());
+
+                    let new_points = sqlx::query("SELECT points FROM users WHERE discord_id = ?")
+                        .bind(discord_id.as_str())
+                        .fetch_one(db)
+                        .await
+                        .map(|row| row.get::<i64, _>("points"))
+                        .unwrap_or(0);
+                    let old_points = new_points - point_delta;
+
+                    if let Err(err) = rank_manager::notify_rank_transition(
+                        ctx,
+                        discord_id.as_str(),
+                        &rs_name,
+                        old_points,
+                        new_points,
+                        db,
+                    )
+                    .await
+                    {
+                        tracing::error!(
+                            "Failed to emit rank transition notification for {}: {:?}",
+                            discord_id,
+                            err
+                        );
+                    }
+
+                    affected_players.insert(
+                        discord_id,
+                        PlayerStats {
+                            change: point_delta,
+                            name: rs_name,
+                        },
+                    );
+                }
 
                 let mut info_readout = format!("\n**Recalculation Results** (only highest points previously awarded listed):\n{} total records affected!", running_count);
 
@@ -168,9 +227,6 @@ pub async fn handle_recalculate( //Big red button
 
                 info_readout += "\n**Affected users:**";
 
-                clog_update_query.build()
-                .execute(db)
-                .await?;
                 for (i, player) in affected_players.into_iter().enumerate() {
                     info_readout += format!("\n**{}** ({}): **{}{}** points",
                     player.1.name,
@@ -178,8 +234,6 @@ pub async fn handle_recalculate( //Big red button
                     if player.1.change.is_positive() {"+"} else {""},
                     player.1.change,
                     ).as_str();
-                    rank_manager::add_points(ctx, player.0.as_str(), &player.1.name, player.1.change, db).await?;
-                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await; //I don't know if discord would rate limit if I just let it run as fast as possible
                 }
                 command
                     .edit_response(&ctx.http, EditInteractionResponse::new().content("Recalculation Complete!"))
