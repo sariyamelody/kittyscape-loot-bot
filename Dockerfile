@@ -1,7 +1,7 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1
 
 # Base image shared by planner and builder
-FROM rust:1.86-slim-bullseye AS base
+FROM rust:1.94-slim-bookworm AS base
 
 WORKDIR /usr/src/app
 
@@ -28,13 +28,13 @@ COPY . .
 RUN cargo build --release --bin kittyscape-loot-bot
 
 # Runtime stage
-FROM debian:bullseye-slim AS runtime
+FROM debian:bookworm-slim AS runtime
 
 WORKDIR /app
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libssl1.1 libsqlite3-0 ca-certificates strace && \
+    libssl3 libsqlite3-0 ca-certificates strace && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/src/app/target/release/kittyscape-loot-bot /app/kittyscape-loot-bot
