@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Base image shared by planner and builder
-FROM rust:1.86-slim-bullseye AS base
+FROM rust:1.88-slim-bullseye AS base
 
 WORKDIR /usr/src/app
 
