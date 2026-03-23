@@ -10,7 +10,7 @@ RUN apt-get update && \
     pkg-config libssl-dev libsqlite3-dev ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-RUN cargo install cargo-chef --locked
+RUN cargo install cargo-chef
 
 # Planner stage: build dependency recipe
 FROM base AS planner
