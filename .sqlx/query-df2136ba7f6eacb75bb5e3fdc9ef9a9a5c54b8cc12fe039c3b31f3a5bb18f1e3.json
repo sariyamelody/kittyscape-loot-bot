@@ -11,17 +11,17 @@
       {
         "name": "drop_count",
         "ordinal": 1,
-        "type_info": "Int64"
+        "type_info": "Int"
       },
       {
         "name": "total_value",
         "ordinal": 2,
-        "type_info": "Int64"
+        "type_info": "Int"
       },
       {
         "name": "best_drop_value",
         "ordinal": 3,
-        "type_info": "Int64"
+        "type_info": "Int"
       },
       {
         "name": "best_drop_name",

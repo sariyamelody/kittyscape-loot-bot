@@ -55,7 +55,7 @@ struct DinkExtra {
     total_entries: Option<i32>,
     dropper_name: Option<String>,
     dropper_type: Option<String>,
-    dropper_kill_count: Option<String>,
+    dropper_kill_count: Option<i32>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -275,7 +275,7 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
 
                             if data.extra.dropper_name.is_some() || data.extra.dropper_kill_count.is_some() {
                                 embed = field_if_exists(embed, data.extra.dropper_name, "Source");
-                                embed = field_if_exists(embed, data.extra.dropper_kill_count, "Count");
+                                embed = field_if_exists_int(embed, data.extra.dropper_kill_count, "Count");
                                 embed = embed.field("", "", false);
                             }
 
@@ -608,6 +608,9 @@ async fn dink_drop(handler: &DinkHandler, item_id: i64, name: String, value: i64
 }
 fn field_if_exists(embed: CreateEmbed, value: Option<String>, name: &str) -> CreateEmbed {
     if let Some(value) = value { embed.field(name, value, true) } else { embed }
+}
+fn field_if_exists_int(embed: CreateEmbed, value: Option<i32>, name: &str) -> CreateEmbed {
+    if let Some(value) = value { embed.field(name, value.to_string(), true) } else { embed }
 }
 fn search_link(name: String) -> String {
     let link = format!("https://oldschool.runescape.wiki/w/Special:Search?search={}", name.clone().replace(" ", "%20"));
