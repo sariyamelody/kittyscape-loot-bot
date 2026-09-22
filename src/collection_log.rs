@@ -161,7 +161,7 @@ impl CollectionLogManager<> {
                         // Get all links in the cell
                         let links: Vec<_> = td.select(&scraper::Selector::parse("a").unwrap()).collect();
                         // Skip the image link (first link) and get the item name link (second link)
-                        links.get(1)
+                        links.get(0)
                             .and_then(|a| a.value().attr("title"))
                             .map(|s| decode_html_entities(s).into_owned())
                     })
@@ -173,7 +173,7 @@ impl CollectionLogManager<> {
                     .next().unwrap()
                     .select(&scraper::Selector::parse("a").unwrap())
                     .collect::<Vec<ElementRef>>()
-                    .get(1).unwrap()
+                    .get(0).unwrap()
                     .text()
                     .collect::<String>();
                     

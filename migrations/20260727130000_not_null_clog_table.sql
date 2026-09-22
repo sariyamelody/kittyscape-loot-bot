@@ -1,5 +1,6 @@
 DROP VIEW IF EXISTS v_categories_clogs;
 DROP VIEW IF EXISTS v_item_data;
+DROP VIEW IF EXISTS v_users;
 
 -- SQLite ties foreign key enforcement to the underlying table object, not just its name, so
 -- dropping and recreating collection_log_items below fails at commit as soon as
@@ -79,3 +80,13 @@ FROM collection_log_items
 LEFT JOIN clampedcats ON clampedcats.item_id=collection_log_items.item_id
 LEFT JOIN clogtable ON clogtable.item_name=collection_log_items.item_name
 ORDER BY item_id;
+CREATE VIEW IF NOT EXISTS v_users as 
+with droptable as (
+    select discord_id, sum(value / 100000) as drop_points, count(id) as drop_count from drops group by discord_id
+),
+clogtable as (
+    select discord_id, sum(points) as clog_points, count(item_name) as clog_count from collection_log_entries group by discord_id
+)
+select users.discord_id, drop_points, clog_points, COALESCE(drop_points,0) + COALESCE(clog_points,0) as total_points, drop_count, clog_count from users
+left join droptable on users.discord_id = droptable.discord_id
+left join clogtable on users.discord_id = clogtable.discord_id;

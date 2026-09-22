@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item_id, item_name, preferred_name, percentage FROM v_item_data WHERE item_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "item_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "preferred_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "percentage",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5ec6a919a6533382f03bb26c773039463ef67fc23ece96508c680b31f1998b67"
+}

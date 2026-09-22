@@ -94,6 +94,14 @@ struct LinkedAccount {
     dink_hash: Option<String>,
 }
 
+//Struct to check for the collection log in two different ways
+struct CollectionLogItem {
+    item_id: i64,
+    item_name: String,
+    preferred_name: String,
+    percentage: String,
+}
+
 pub async fn dink_handler(Extension(handler): Extension<DinkHandler>, Path(token): Path<String>, req: Request) -> Response {
     // The token is the only thing gating this endpoint - Dink can't send custom headers, so it
     // has to live in the URL path itself. Distribute it only via the hosted, importable Dink
@@ -234,14 +242,18 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                         debug!("COLLECTION event with no itemId, dropping");
                         return;
                     };
-                    let item = sqlx::query!("SELECT * FROM v_item_data WHERE item_id = ?", id)
-                    .fetch_one(&dink_handler.db)
-                    .await
-                    .ok();
+                    let Some(name) = data.extra.item_name else {
+                        debug!("COLLECTION event with no item name, dropping");
+                        return;
+                    };
+                    let item = identify_item(id.clone(), name.clone(), dink_handler.db.clone()).await;
                     //Initiate
                     let description: String;
                     if let Some(item) = item {
                         let item_name = item.preferred_name.clone();
+                        //Use our own item_id from here on, in case the one we got was unreliable
+                        //(Meaning we did a name lookup instead)
+                        let item_id = item.item_id.clone();
                         //Do they have this item recorded already?
                         if let Ok(Some(_)) = sqlx::query!(
                             "SELECT id FROM collection_log_entries 
@@ -262,7 +274,7 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                                 &format!("{} received collection log item they already had: {}", data.player_name, item_name)
                             ).await;
                         } else {
-                            let (points, new_total) = dink_clog(&dink_handler, id, item_name.clone(), discord_id.clone(), &member.display_name()).await;
+                            let (points, new_total) = dink_clog(&dink_handler, item_id, item_name.clone(), discord_id.clone(), &member.display_name()).await;
                             description = format!("Got a new collection log item:\n**{}**!", search_link(item_name.clone()));
                             //Now that we know for sure the item is valid we can build the embed
 
@@ -280,7 +292,8 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                             }
 
                             embed = embed.field("Points Added", format_value(format!("+{}", points)), true)
-                            .field("Points Total", format_value(new_total.to_string()), true);
+                            .field("Points Total", format_value(new_total.to_string()), true)
+                            .thumbnail(format!("https://static.runelite.net/cache/item/icon/{item_id}.png"));
                             
                             let _ = logger::log_action(
                                 &dink_handler.ctx,
@@ -292,21 +305,20 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                         
                     }
                     else {
-                        let item_name = data.extra.item_name.clone().unwrap_or_else(|| "an unknown item".to_string());
                         //If we don't have a record for it, it's probably new
                         //We don't have data so we kinda just have to abandon ship
-                        description = format!("Got a new collection log item:\n**{}**!\n\nBut, ummm... I don't know what that is yet... sorry...", search_link(item_name.clone()));
+                        description = format!("Got a new collection log item:\n**{}**!\n\nBut, ummm... I don't know what that is yet... sorry...", search_link(name.clone()));
                         //We can still add the record but no points will be added
-                        dink_clog(&dink_handler, id, item_name.clone(), discord_id.clone(), &member.display_name()).await;
+                        dink_clog(&dink_handler, id, name.clone(), discord_id.clone(), &member.display_name()).await;
                         let _ = logger::log_action(
                                 &dink_handler.ctx,
                                 &discord_id,
                                 "DINK CLOG",
-                                &format!("{} received collection log item, but it was unknown (zero points given): {}", data.player_name, item_name)
+                                &format!("{} received collection log item, but it was unknown (zero points given): {}", data.player_name, name)
                             ).await;
+                        embed = embed.thumbnail(format!("https://static.runelite.net/cache/item/icon/{id}.png"));
                     }
-                    embed = embed.thumbnail(format!("https://static.runelite.net/cache/item/icon/{id}.png"))
-                        .description(description);
+                    embed = embed.description(description);
                 }
                 "LOOT" => {
                     debug!("Received drop");
@@ -329,12 +341,14 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                         let price = item.price_each.max(dink_handler.price_manager.get_item_id_price(&item.id).await.unwrap_or(0));
                         let value = item.quantity * price;
                         //Annoyingly even if an item is in the denylist, it's still sent if we get other drop data, just with DENYLIST criteria
-                        if value >= 100_000 && value > best && !item.criteria.contains(&"DENYLIST".to_string()) {
+                        if value > best && !item.criteria.contains(&"DENYLIST".to_string()) {
                             valuable = Some(item.clone());
                             best = value;
                         }
                     }
-                    if let Some(item) = valuable {
+                    //Only count it if it meets our value threshold
+                    if best >= 100_000 {
+                        let item = valuable.unwrap();
                         //Now that we know it's valuable, we're okay to send
                         sendable = true;
                         let points = best / 100_000;
@@ -367,13 +381,14 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                         ).await;
                     }
                     else {
-                        // Log the auto-added drop to the bot log channel
-                        let _ = crate::logger::log_action(
-                            &dink_handler.ctx,
-                            &discord_id,
-                            "DINK DROP (REJECTED)",
-                            &format!("{} tried to log some hot garbage", data.player_name)
-                        ).await;
+                        if let Some(item) = valuable {
+                            let _ = crate::logger::log_action(
+                                &dink_handler.ctx,
+                                &discord_id,
+                                "DINK DROP (REJECTED)",
+                                &format!("{} tried to log some hot garbage: Most valuable item was {}x {} worth {} GP", data.player_name, item.quantity, item.name, best)
+                            ).await;
+                        }
                     }
                 }
                 "PET" => {
@@ -607,12 +622,36 @@ async fn dink_drop(handler: &DinkHandler, item_id: i64, name: String, value: i64
     }
 }
 fn field_if_exists(embed: CreateEmbed, value: Option<String>, name: &str) -> CreateEmbed {
-    if let Some(value) = value { embed.field(name, value, true) } else { embed }
+    if let Some(value) = value { embed.field(name, format!("```\n{value}```"), true) } else { embed }
 }
 fn field_if_exists_int(embed: CreateEmbed, value: Option<i32>, name: &str) -> CreateEmbed {
-    if let Some(value) = value { embed.field(name, value.to_string(), true) } else { embed }
+    if let Some(value) = value { embed.field(name, format!("```\n{}```", value.to_string()), true) } else { embed }
 }
 fn search_link(name: String) -> String {
     let link = format!("https://oldschool.runescape.wiki/w/Special:Search?search={}", name.clone().replace(" ", "%20"));
     format!("[{}]({})", name, link)
+}
+//Identify a collection log item
+//If we cannot find the item by id (meaning Dink likely gave us a bad id, or we don't have it yet)
+//Then we use the name as a fallback
+async fn identify_item(id: i64, name: String, db: SqlitePool) -> Option<CollectionLogItem> {
+    match sqlx::query_as!(
+            CollectionLogItem,
+            "SELECT item_id, item_name, preferred_name, percentage FROM v_item_data WHERE item_id = ?",
+            id
+        )
+        .fetch_one(&db)
+        .await
+        .ok()
+        {
+            found @ Some(_) => found,
+            None => sqlx::query_as!(
+                CollectionLogItem,
+                "SELECT item_id, item_name, preferred_name, percentage FROM v_item_data WHERE item_name = ?",
+                name
+            )
+            .fetch_one(&db)
+            .await
+            .ok(),
+        }
 }

@@ -84,6 +84,11 @@ impl EventHandler for Handler {
             error!("Error registering commands: {:?}", why);
         }
 
+        let _ = crate::logger::log_generic(
+            &ctx,
+            "HELLKITTEN READY: Booted up and ready to serve, nya!"
+        ).await;
+
         // Start price updates
         Arc::clone(&self.price_manager).start_price_updates().await;
     }
