@@ -158,10 +158,11 @@ impl CollectionLogManager<> {
                     .select(&scraper::Selector::parse("td").unwrap())
                     .next()
                     .and_then(|td| {
-                        // Get all links in the cell
+                        // The wiki no longer wraps the item's icon in its own <a> tag, so the
+                        // item name link is the only <a> in the cell (previously it was the
+                        // second link, after an image link that has since been removed).
                         let links: Vec<_> = td.select(&scraper::Selector::parse("a").unwrap()).collect();
-                        // Skip the image link (first link) and get the item name link (second link)
-                        links.get(1)
+                        links.last()
                             .and_then(|a| a.value().attr("title"))
                             .map(|s| decode_html_entities(s).into_owned())
                     })
@@ -173,7 +174,7 @@ impl CollectionLogManager<> {
                     .next().unwrap()
                     .select(&scraper::Selector::parse("a").unwrap())
                     .collect::<Vec<ElementRef>>()
-                    .get(1).unwrap()
+                    .last().unwrap()
                     .text()
                     .collect::<String>();
                     
@@ -234,11 +235,17 @@ impl CollectionLogManager<> {
             info!("Response JSON structure: {}", serde_json::to_string_pretty(&json)?);
         }
 
-        data_insert.push("ON CONFLICT(item_id) DO UPDATE SET item_name=excluded.item_name, preferred_name=excluded.preferred_name, percentage=excluded.percentage, categories=excluded.categories");
+        // An empty VALUES clause followed directly by ON CONFLICT is a SQL syntax error, so
+        // only run the upsert if the wiki page actually yielded rows.
+        if !items.is_empty() {
+            data_insert.push("ON CONFLICT(item_id) DO UPDATE SET item_name=excluded.item_name, preferred_name=excluded.preferred_name, percentage=excluded.percentage, categories=excluded.categories");
 
-        // let please_god = data_insert.into_sql();
-        // info!("{}", please_god);
-        data_insert.build().execute(db).await?;
+            // let please_god = data_insert.into_sql();
+            // info!("{}", please_god);
+            data_insert.build().execute(db).await?;
+        } else {
+            error!("No collection log items parsed from wiki response; skipping upsert");
+        }
 
         // v_categories_clogs is a recursive(!) table view that doubles as a sort of linking table. It's not pretty but it does exactly what I need it to do.
         // the recursion is necessary to split the "category" field into as many substrings as needed. The alternative is collecting all categories into a Vec<str> which Rust hates.
