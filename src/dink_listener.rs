@@ -349,8 +349,12 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                     //Only count it if it meets our value threshold
                     if best >= 100_000 {
                         let item = valuable.unwrap();
-                        //Now that we know it's valuable, we're okay to send
-                        sendable = true;
+                        //Is it worth more than one point though? Certain content drops 100k drops pretty often, this ends up spamming the channel somewhat
+                        //We can still give them the point, just don't output the message
+                        if best >= 200_000 {
+                            //Now that we know it's valuable, we're okay to send
+                            sendable = true;
+                        }
                         let points = best / 100_000;
                         let source = data.extra.source.clone().unwrap_or_else(|| "an unknown source".to_string());
                         let description = if item.quantity > 1 {
