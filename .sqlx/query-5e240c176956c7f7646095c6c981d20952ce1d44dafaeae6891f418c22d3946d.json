@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item_id, item_name, preferred_name, percentage FROM v_item_data WHERE lower(item_name) = lower(?) OR lower(preferred_name) = lower(?)",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "item_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "preferred_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "percentage",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5e240c176956c7f7646095c6c981d20952ce1d44dafaeae6891f418c22d3946d"
+}
