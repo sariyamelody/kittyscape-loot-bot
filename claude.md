@@ -153,6 +153,7 @@ kittyscape-loot-bot/
 - Accepts both `multipart/form-data` (screenshot attached) and `application/json` (no screenshot) request bodies
 - Handles `COLLECTION`, `LOOT`, and `PET` notification types; other types are logged and ignored
 - Resolves the reporting player to a Discord member by RuneScape name/account hash, auto-linking on first contact if the notification includes Discord identity info
+- `LOOT` drops worth under 200,000 gp (i.e. only one point) are still recorded and awarded, but no Discord notification is posted, to avoid spamming the channel
 - Awards points through the same `rank_manager::add_points` path as `/drop` and `/clog`, so Dink-sourced drops and collection log entries count toward rank progression and trigger rank-up/rank-down notifications
 
 ## Utilities
