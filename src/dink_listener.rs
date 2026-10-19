@@ -238,18 +238,17 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                 "COLLECTION" => {
                     sendable = true;
                     debug!("Received collection log");
-                    //We only need one of the two to work with, but with neither there's nothing to go on
-                    if data.extra.item_id.is_none() && data.extra.item_name.is_none() {
+                    //Dink always sends both, so if one is missing the request is malformed
+                    let (Some(id), Some(name)) = (data.extra.item_id, data.extra.item_name.clone()) else {
                         let _ = logger::log_action(
                             &dink_handler.ctx,
                             &discord_id,
                             "DINK CLOG (REJECTED)",
-                            &format!("{} sent a collection log event with no item id or name", data.player_name)
+                            &format!("{} sent a collection log event missing its item id or name", data.player_name)
                         ).await;
                         return;
-                    }
-                    let item = identify_item(data.extra.item_id, data.extra.item_name.clone(), dink_handler.db.clone()).await;
-                    let name = data.extra.item_name.clone().unwrap_or_else(|| "an unknown item".to_string());
+                    };
+                    let item = identify_item(id, name.clone(), dink_handler.db.clone()).await;
                     //Initiate
                     let description: String;
                     if let Some(item) = item {
@@ -257,6 +256,15 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                         //Use our own item_id from here on, in case the one we got was unreliable
                         //(Meaning we did a name lookup instead)
                         let item_id = item.item_id;
+                        //An id hit with a different name is unexpected, so make it visible (we still trust the id)
+                        if !item.item_name.eq_ignore_ascii_case(&name) && !item.preferred_name.eq_ignore_ascii_case(&name) {
+                            let _ = logger::log_action(
+                                &dink_handler.ctx,
+                                &discord_id,
+                                "DINK CLOG (NAME MISMATCH)",
+                                &format!("{} received '{}' (Dink id {}), but that id is '{}' in our list", data.player_name, name, id, item.preferred_name)
+                            ).await;
+                        }
                         //Do they have this item recorded already?
                         if let Ok(Some(_)) = sqlx::query!(
                             "SELECT id FROM collection_log_entries 
@@ -277,7 +285,7 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                                 &format!("{} received collection log item they already had: {}", data.player_name, item_name)
                             ).await;
                         } else {
-                            let (points, new_total) = dink_clog(&dink_handler, Some(item_id), item_name.clone(), discord_id.clone(), &member.display_name()).await;
+                            let (points, new_total) = dink_clog(&dink_handler, Some(item_id), id, item_name.clone(), discord_id.clone(), &member.display_name()).await;
                             description = format!("Got a new collection log item:\n**{}**!", search_link(item_name.clone()));
                             //Now that we know for sure the item is valid we can build the embed
 
@@ -312,14 +320,16 @@ async fn process_dink_event(dink_handler: DinkHandler, data: DinkPayload, dink_f
                         //We don't have data so we kinda just have to abandon ship
                         description = format!("Got a new collection log item:\n**{}**!\n\nBut, ummm... I don't know what that is yet... sorry...", search_link(name.clone()));
                         //We can still add the record but no points will be added
-                        //item_id is left empty: it's a foreign key into our list, and Dink's id can't be trusted for an item we don't recognize
-                        dink_clog(&dink_handler, None, name.clone(), discord_id.clone(), &member.display_name()).await;
+                        //item_id is left empty: it's a foreign key into our list, so it can't hold an id we don't have.
+                        //Dink's id is kept in dink_item_id instead.
+                        dink_clog(&dink_handler, None, id, name.clone(), discord_id.clone(), &member.display_name()).await;
                         let _ = logger::log_action(
                                 &dink_handler.ctx,
                                 &discord_id,
                                 "DINK CLOG",
                                 &format!("{} received collection log item, but it was unknown (zero points given): {}", data.player_name, name)
                             ).await;
+                        embed = embed.thumbnail(format!("https://static.runelite.net/cache/item/icon/{id}.png"));
                     }
                     embed = embed.description(description);
                 }
@@ -568,7 +578,7 @@ async fn identify_user (data: DinkPayload, db: SqlitePool, ctx: Context, guild_i
 /// runescape_accounts row (which, by the same FK, couldn't exist without a users row) or it just
 /// upserted one itself on the auto-link path.
 /// Returns (points awarded, user's new points total).
-async fn dink_clog(handler: &DinkHandler, item_id: Option<i64>, name: String, discord_id: String, user_name: &str) -> (i64, i64) {
+async fn dink_clog(handler: &DinkHandler, item_id: Option<i64>, dink_item_id: i64, name: String, discord_id: String, user_name: &str) -> (i64, i64) {
 
     let points = match item_id {
         Some(item_id) => handler.collection_log_manager.calculate_points_dink(item_id).await.unwrap_or(0),
@@ -577,11 +587,12 @@ async fn dink_clog(handler: &DinkHandler, item_id: Option<i64>, name: String, di
 
     // Record the collection log entry
     let _ = sqlx::query!(
-        "INSERT INTO collection_log_entries (discord_id, item_name, points, item_id) VALUES (?, ?, ?, ?)",
+        "INSERT INTO collection_log_entries (discord_id, item_name, points, item_id, dink_item_id) VALUES (?, ?, ?, ?, ?)",
         discord_id,
         name,
         points,
-        item_id
+        item_id,
+        dink_item_id
     )
     .execute(&handler.db)
     .await;
@@ -641,27 +652,20 @@ fn search_link(name: String) -> String {
     format!("[{}]({})", name, link)
 }
 //Identify a collection log item
-//Dink's item ids aren't always right (e.g. ground loot like the Zamorak cape can come through with
-//the id of an unrelated clog item), so an id match only counts if the name Dink gave us agrees.
-//Otherwise (or if the id isn't in our list) fall back to looking the item up by name.
-async fn identify_item(id: Option<i64>, name: Option<String>, db: SqlitePool) -> Option<CollectionLogItem> {
-    if let Some(id) = id {
-        let found = sqlx::query_as!(
-            CollectionLogItem,
-            "SELECT item_id, item_name, preferred_name, percentage FROM v_item_data WHERE item_id = ?",
-            id
-        )
-        .fetch_one(&db)
-        .await
-        .ok();
-        if let Some(found) = found {
-            let agrees = name.as_ref().map_or(true, |n| found.preferred_name.eq_ignore_ascii_case(n) || found.item_name.eq_ignore_ascii_case(n));
-            if agrees {
-                return Some(found);
-            }
-        }
+//If we cannot find the item by id (meaning Dink likely gave us an item we don't have yet)
+//Then we use the name as a fallback
+async fn identify_item(id: i64, name: String, db: SqlitePool) -> Option<CollectionLogItem> {
+    let found = sqlx::query_as!(
+        CollectionLogItem,
+        "SELECT item_id, item_name, preferred_name, percentage FROM v_item_data WHERE item_id = ?",
+        id
+    )
+    .fetch_one(&db)
+    .await
+    .ok();
+    if found.is_some() {
+        return found;
     }
-    let name = name?;
     sqlx::query_as!(
         CollectionLogItem,
         "SELECT item_id, item_name, preferred_name, percentage FROM v_item_data WHERE lower(item_name) = lower(?) OR lower(preferred_name) = lower(?)",
